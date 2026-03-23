@@ -1,14 +1,11 @@
 import Header from '@/components/Header'
 import PodcastTabs from '@/components/PodcastTabs'
-import Link from 'next/link'
-import { getConceptsPage } from '@/lib/api/concepts'
-import { getInsights } from '@/lib/api/insights'
+import { getConcepts } from '@/lib/api/concepts'
 import { getDryRunPreview } from '@/lib/api/preview'
-import type { Concept, Insight } from '@/lib/types/rag'
+import type { Concept } from '@/lib/types/rag'
 
 // Revalidate every 5 minutes — balances freshness with speed
 export const revalidate = 300
-const CONCEPTS_PER_PAGE = 10
 
 type PodcastPageProps = {
   params: { 'podcast-slug': string }
@@ -32,9 +29,13 @@ function isPreviewEnabled(value: string | string[] | undefined) {
   return raw === '1' || raw === 'true' || raw === 'yes'
 }
 
-function getInitialTab(value: string | string[] | undefined) {
+type VisibleTab = 'concepts' | 'chat'
+
+function getInitialTab(value: string | string[] | undefined): VisibleTab | undefined {
   const raw = Array.isArray(value) ? value[0] : value
-  if (raw === 'concepts' || raw === 'chat' || raw === 'insights') return raw
+  // Legacy ?tab=insights URLs → concepts
+  if (raw === 'insights' || raw === 'concepts') return 'concepts'
+  if (raw === 'chat') return 'chat'
   return undefined
 }
 
@@ -45,10 +46,8 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
   const sampleChunks = getParamInt(searchParams?.sampleChunks, 240, 60, 500)
   const conceptCount = getParamInt(searchParams?.conceptCount, 10, 4, 24)
   const insightCount = getParamInt(searchParams?.insightCount, 10, 4, 24)
-
   let concepts: Concept[] = []
   let conceptsTotal = 0
-  let insights: Insight[] = []
   let previewMeta: Awaited<ReturnType<typeof getDryRunPreview>>['meta'] | null = null
   let previewError: string | null = null
 
@@ -56,26 +55,15 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
     try {
       const preview = await getDryRunPreview(slug, { sampleChunks, conceptCount, insightCount })
       concepts = preview.concepts
-      insights = preview.insights
       previewMeta = preview.meta
     } catch (error) {
       previewError = error instanceof Error ? error.message : 'Preview mode failed'
-      const [conceptPage, insightsResult] = await Promise.all([
-        getConceptsPage(slug, { limit: CONCEPTS_PER_PAGE, offset: 0 }),
-        getInsights(slug),
-      ])
-      concepts = conceptPage.items
-      conceptsTotal = conceptPage.total
-      insights = insightsResult
+      concepts = await getConcepts(slug)
+      conceptsTotal = concepts.length
     }
   } else {
-    const [conceptPage, insightsResult] = await Promise.all([
-      getConceptsPage(slug, { limit: CONCEPTS_PER_PAGE, offset: 0 }),
-      getInsights(slug),
-    ])
-    concepts = conceptPage.items
-    conceptsTotal = conceptPage.total
-    insights = insightsResult
+    concepts = await getConcepts(slug)
+    conceptsTotal = concepts.length
   }
 
   if (previewEnabled) {
@@ -85,7 +73,14 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
 
   return (
     <div className="min-h-screen bg-cream-50 flex flex-col">
-      <Header />
+      <Header
+        themeGraphHref={
+          slug === 'lennys-podcast' ? graphHref : undefined
+        }
+        simulatorHref={
+          slug === 'lennys-podcast' ? `/${slug}/simulator` : undefined
+        }
+      />
       {previewEnabled && (
         <div className="border-b border-accent-200 bg-accent-50/60">
           <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 text-xs text-charcoal-700 flex flex-wrap gap-3 items-center">
@@ -102,30 +97,10 @@ export default async function PodcastPage({ params, searchParams }: PodcastPageP
           </div>
         </div>
       )}
-      {slug === 'lennys-podcast' && (
-        <div className="border-b border-charcoal-200/50 bg-cream-50/80">
-          <div className="max-w-5xl mx-auto px-4 md:px-6 py-2 flex justify-end">
-            <Link
-              href={graphHref}
-              className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-charcoal-200 text-charcoal-600 hover:text-accent-700 hover:border-accent-200 hover:bg-white transition-colors"
-            >
-              <span>Open Theme Graph</span>
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="5" cy="6" r="2" />
-                <circle cx="19" cy="6" r="2" />
-                <circle cx="12" cy="18" r="2" />
-                <path d="M7 6h10M6.7 7.2l4.6 9.2M17.3 7.2l-4.6 9.2" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      )}
       <PodcastTabs
         podcastSlug={slug}
-        insights={insights}
         concepts={concepts}
         conceptsTotal={conceptsTotal}
-        conceptsPerPage={CONCEPTS_PER_PAGE}
         previewMode={previewEnabled}
         initialTab={initialTab}
       />

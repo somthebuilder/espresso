@@ -2,21 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import AuthModal from './AuthModal'
+import { AUTH_REQUIRED } from '@/lib/auth-config'
 
-export default function Header() {
+type HeaderProps = {
+  /** When set (e.g. Lenny’s podcast page), shows the bordered “Open Theme Graph” control in the header */
+  themeGraphHref?: string
+  /** Lenny-only: Operator Simulator */
+  simulatorHref?: string
+}
+
+export default function Header({ themeGraphHref, simulatorHref }: HeaderProps) {
   const [hasAccount, setHasAccount] = useState(false)
   const [showAuth, setShowAuth] = useState(false)
-  const pathname = usePathname()
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!AUTH_REQUIRED || typeof window === 'undefined') return
     setHasAccount(localStorage.getItem('espresso_has_account') === '1')
   }, [])
-
-  const showGraphButton = true
-  const graphHref = '/lennys-podcast/graph'
 
   return (
     <>
@@ -30,31 +33,53 @@ export default function Header() {
             </span>
           </Link>
 
-          {/* Auth — only Sign In or user info */}
+          {/* Secondary nav actions */}
           <div className="flex items-center gap-3">
-            {showGraphButton && (
+            {themeGraphHref && (
               <Link
-                href={graphHref}
-                className="text-xs font-medium text-charcoal-500 hover:text-espresso-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-espresso-50/60"
+                href={themeGraphHref}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-charcoal-200 text-charcoal-600 hover:text-accent-700 hover:border-accent-200 hover:bg-white transition-colors"
               >
-                Theme Graph
+                <span>Open Theme Graph</span>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="5" cy="6" r="2" />
+                  <circle cx="19" cy="6" r="2" />
+                  <circle cx="12" cy="18" r="2" />
+                  <path d="M7 6h10M6.7 7.2l4.6 9.2M17.3 7.2l-4.6 9.2" />
+                </svg>
               </Link>
             )}
-            <button
-              onClick={() => setShowAuth(true)}
-              className="text-xs font-medium text-charcoal-500 hover:text-espresso-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-espresso-50/60"
-            >
-              {hasAccount ? 'Continue' : 'Sign In'}
-            </button>
+            {simulatorHref && (
+              <Link
+                href={simulatorHref}
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-charcoal-200 text-charcoal-600 hover:text-accent-700 hover:border-accent-200 hover:bg-white transition-colors"
+              >
+                <span>Simulator</span>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+              </Link>
+            )}
+            {AUTH_REQUIRED && (
+              <button
+                type="button"
+                onClick={() => setShowAuth(true)}
+                className="text-xs font-medium text-charcoal-500 hover:text-espresso-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-espresso-50/60"
+              >
+                {hasAccount ? 'Continue' : 'Sign In'}
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      <AuthModal
-        isOpen={showAuth}
-        onClose={() => setShowAuth(false)}
-        initialMode="signin"
-      />
+      {AUTH_REQUIRED && (
+        <AuthModal
+          isOpen={showAuth}
+          onClose={() => setShowAuth(false)}
+          initialMode="signin"
+        />
+      )}
     </>
   )
 }

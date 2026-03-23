@@ -88,3 +88,8 @@ All episodes should include `publish_date` in ISO 8601 format (YYYY-MM-DD). To f
    ```
 3. Extract `snippet.publishedAt` from the response
 4. Add `publish_date: YYYY-MM-DD` to the frontmatter after `video_id`
+
+## Operator Simulator (Supabase)
+
+- **One-shot (Supabase SQL Editor):** run `migrations/seed_simulator_data.sql` — it includes idempotent `CREATE TABLE IF NOT EXISTS` + RLS + Lenny seed rows (requires `podcasts.slug = 'lennys-podcast'`).
+- **Split migrations:** run `migrations/create_simulator_tables.sql` first, then `migrations/seed_simulator_data.sql` (schema section is duplicated; safe either way).

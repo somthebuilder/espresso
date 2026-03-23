@@ -4,9 +4,14 @@
  */
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const genAI = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || ''
-)
+/** Server-side: use this so API routes and gemini-client share the same key resolution. */
+export function getGeminiApiKey(): string | undefined {
+  const raw = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+  const t = typeof raw === 'string' ? raw.trim() : ''
+  return t || undefined
+}
+
+const genAI = new GoogleGenerativeAI(getGeminiApiKey() || '')
 
 const DEFAULT_MODEL = 'gemini-2.0-flash-exp'
 
@@ -22,7 +27,7 @@ export async function generateText(
     safetySettings?: any[]
   } = {}
 ): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+  const apiKey = getGeminiApiKey()
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY or GOOGLE_API_KEY is not set')
   }

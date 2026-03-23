@@ -1,3 +1,12 @@
+// Load repo-root .env so GEMINI_* / other keys work when only LennyandFriends/.env exists
+// (Next.js only auto-loads .env* from this directory, i.e. frontend/.)
+const path = require('path')
+try {
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') })
+} catch {
+  /* optional */
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,

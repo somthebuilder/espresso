@@ -2,7 +2,7 @@ import Header from '@/components/Header'
 
 /**
  * Streaming loading skeleton for the podcast page.
- * Shown while the server fetches concepts/insights from Supabase.
+ * Shown while the server fetches concepts from Supabase.
  */
 export default function PodcastLoading() {
   return (
@@ -13,11 +13,11 @@ export default function PodcastLoading() {
       <div className="sticky top-14 z-30 bg-cream-50/95 backdrop-blur-md border-b border-charcoal-200/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6">
           <nav className="flex gap-1">
-            {['Insights', 'Concepts', 'Chat'].map((label) => (
+            {['Concepts', 'Chat'].map((label) => (
               <div
                 key={label}
                 className={`px-5 py-3 text-sm font-medium ${
-                  label === 'Insights'
+                  label === 'Concepts'
                     ? 'text-charcoal-900 border-b-2 border-charcoal-900'
                     : 'text-charcoal-400'
                 }`}

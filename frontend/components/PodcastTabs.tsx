@@ -1,39 +1,23 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import InsightCard from '@/components/insights/InsightCard'
-import InsightBreakdown from '@/components/insights/InsightBreakdown'
 import ConceptCard from '@/components/concepts/ConceptCard'
-import { Insight } from '@/lib/api/insights'
 import { Concept } from '@/lib/api/concepts'
 import { sendMessage, submitQuiz, ConversationTurn } from '@/lib/api/chat'
-import { ChatMessage, ClarificationQuestion, QuizPath, QuizResponse } from '@/lib/types/rag'
+import { ChatMessage, QuizPath, QuizResponse } from '@/lib/types/rag'
 import LightningQuiz from '@/components/quiz/LightningQuiz'
 import { useSpeechToText } from '@/hooks/useSpeechToText'
 import BeanAnimation from '@/components/BeanAnimation'
 import ReactMarkdown from 'react-markdown'
-import { supabase } from '@/lib/supabase'
 import AuthModal from '@/components/AuthModal'
+import { AUTH_REQUIRED } from '@/lib/auth-config'
 
-/* ── Helper: get or create a stable voter ID (matches podcast voting pattern) ── */
-function getVoterId(): string {
-  if (typeof window === 'undefined') return ''
-  let id = localStorage.getItem('espresso_voter_id')
-  if (!id) {
-    id = crypto.randomUUID()
-    localStorage.setItem('espresso_voter_id', id)
-  }
-  return id
-}
-
-type TabId = 'insights' | 'concepts' | 'chat'
+type TabId = 'concepts' | 'chat'
 
 interface PodcastTabsProps {
   podcastSlug: string
-  insights: Insight[]
   concepts: Concept[]
   conceptsTotal?: number
-  conceptsPerPage?: number
   previewMode?: boolean
   initialTab?: TabId
 }
@@ -66,41 +50,39 @@ function formatSeconds(seconds?: number): string | null {
   return `${m}:${String(s).padStart(2, '0')}`
 }
 
+function normalizeInitialTab(tab: TabId | undefined): TabId {
+  if (tab === 'chat') return 'chat'
+  return 'concepts'
+}
+
 export default function PodcastTabs({
   podcastSlug,
-  insights,
   concepts,
   conceptsTotal = concepts.length,
-  conceptsPerPage = 10,
   previewMode = false,
   initialTab,
 }: PodcastTabsProps) {
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab ?? 'insights')
+  const [activeTab, setActiveTab] = useState<TabId>(() => normalizeInitialTab(initialTab))
   const [conceptItems, setConceptItems] = useState<Concept[]>(concepts)
   const [conceptTotal, setConceptTotal] = useState(conceptsTotal)
-  const [conceptPage, setConceptPage] = useState(1)
-  const [isConceptsLoading, setIsConceptsLoading] = useState(false)
-  const [conceptsFetchAttempted, setConceptsFetchAttempted] = useState(false)
-  const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [insightFilter, setInsightFilter] = useState<'all' | 'most_valuable'>('all')
 
   // Shuffle key: increments on tab switch so card order feels fresh each time
   const [shuffleKey, setShuffleKey] = useState(0)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const shuffledInsights = useMemo(() => shuffleArray(insights), [insights, shuffleKey])
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const shuffledConcepts = useMemo(() => shuffleArray(conceptItems), [conceptItems, shuffleKey])
-  // Track updated valuable counts from user interactions
-  const [valuableCounts, setValuableCounts] = useState<Record<string, number>>({})
-  // Track which insights this voter has already marked as valuable
-  const [votedInsightIds, setVotedInsightIds] = useState<Set<string>>(new Set())
+  // Random shuffle must not run during SSR/first paint — it breaks hydration (server HTML ≠ client).
+  const [hasMounted, setHasMounted] = useState(false)
+  useEffect(() => {
+    setHasMounted(true)
+  }, [])
+  const shuffledConcepts = useMemo(() => {
+    if (!hasMounted) return conceptItems
+    return shuffleArray(conceptItems)
+  }, [hasMounted, conceptItems, shuffleKey])
 
   // Chat state
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [chatInput, setChatInput] = useState('')
   const [isChatLoading, setIsChatLoading] = useState(false)
-  const [chatContext, setChatContext] = useState<string | null>(null)
   const [creditsRemaining, setCreditsRemaining] = useState<number | null>(null)
   const [creditsTotal, setCreditsTotal] = useState<number | null>(null)
   const [chatSessionId, setChatSessionId] = useState<string | undefined>(undefined)
@@ -111,11 +93,11 @@ export default function PodcastTabs({
   const [quizCredits, setQuizCredits] = useState<number | null>(null)
   const [quizCreditsTotal, setQuizCreditsTotal] = useState<number | null>(null)
   const chatScrollRef = useRef<HTMLDivElement>(null)
-  const breakdownRef = useRef<HTMLDivElement>(null)
 
-  // Local auth hint for chat gating (avoids client Supabase auth refresh calls)
+  // Local auth hint for chat gating when AUTH_REQUIRED (avoids client Supabase auth refresh calls)
   const [hasAccount, setHasAccount] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const canUseChat = !AUTH_REQUIRED || hasAccount
 
   // Speech-to-text
   const {
@@ -141,103 +123,20 @@ export default function PodcastTabs({
     }
   }, [messages, isChatLoading])
 
-  // Fetch which insights this voter has already marked as valuable
+  // Track account hint for chat gating (only matters when AUTH_REQUIRED)
   useEffect(() => {
-    if (!insights.length) return
-    const voterId = getVoterId()
-    if (!voterId) return
-    supabase
-      .from('insight_valuable_votes')
-      .select('insight_id')
-      .eq('voter_id', voterId)
-      .then(({ data }) => {
-        if (data) {
-          setVotedInsightIds(new Set(data.map((v) => v.insight_id)))
-        }
-      })
-  }, [insights])
-
-  // Track account hint for chat gating
-  useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!AUTH_REQUIRED || typeof window === 'undefined') return
     setHasAccount(localStorage.getItem('espresso_has_account') === '1')
   }, [])
 
   useEffect(() => {
     setConceptItems(concepts)
     setConceptTotal(conceptsTotal)
-    setConceptPage(1)
-    setIsConceptsLoading(false)
-    setConceptsFetchAttempted(false)
   }, [concepts, conceptsTotal, podcastSlug])
 
   useEffect(() => {
     setSelectedCategory(null)
-  }, [conceptPage, podcastSlug])
-
-  // Load concepts lazily by page when the tab is opened.
-  useEffect(() => {
-    if (previewMode || activeTab !== 'concepts') return
-    let cancelled = false
-    ;(async () => {
-      const offset = (conceptPage - 1) * conceptsPerPage
-      // Reuse SSR payload for the first page when available.
-      if (conceptPage === 1 && concepts.length > 0 && !conceptsFetchAttempted) {
-        setConceptItems(concepts)
-        setConceptTotal(conceptsTotal)
-        setConceptsFetchAttempted(true)
-        return
-      }
-      try {
-        if (!cancelled) setIsConceptsLoading(true)
-        const response = await fetch(
-          `/api/concepts?podcastSlug=${encodeURIComponent(podcastSlug)}&limit=${conceptsPerPage}&offset=${offset}`,
-          {
-          cache: 'no-store',
-          }
-        )
-        if (!response.ok) return
-        const payload = (await response.json()) as
-          | Concept[]
-          | { items?: Concept[]; total?: number }
-
-        if (cancelled) return
-
-        if (Array.isArray(payload)) {
-          setConceptItems(payload)
-          setConceptTotal(payload.length)
-        } else {
-          setConceptItems(Array.isArray(payload.items) ? payload.items : [])
-          setConceptTotal(
-            typeof payload.total === 'number'
-              ? payload.total
-              : Array.isArray(payload.items)
-                ? payload.items.length
-                : 0
-          )
-        }
-      } catch {
-        // Keep existing UI state if request fails.
-      } finally {
-        if (!cancelled) {
-          setIsConceptsLoading(false)
-          setConceptsFetchAttempted(true)
-        }
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [
-    activeTab,
-    conceptPage,
-    concepts,
-    conceptsFetchAttempted,
-    conceptsPerPage,
-    conceptsTotal,
-    podcastSlug,
-    previewMode,
-  ])
+  }, [podcastSlug])
 
   function syncTabToUrl(tabId: TabId) {
     if (typeof window === 'undefined') return
@@ -252,67 +151,11 @@ export default function PodcastTabs({
     setShuffleKey((k) => k + 1) // re-shuffle cards on tab switch
   }
 
-  // Handle "Discuss in Chat" CTA from insight breakdown
-  function handleDiscussInChat(insightTitle: string) {
-    setChatContext(insightTitle)
-    handleTabChange('chat')
-    setChatInput(`Tell me more about: "${insightTitle}"`)
-  }
-
-  // Handle valuable vote from InsightBreakdown (uses same pattern as podcast request voting)
-  async function handleInsightVote(insightId: string): Promise<boolean> {
-    const voterId = getVoterId()
-    if (!voterId || votedInsightIds.has(insightId)) return false
-
-    const { data, error } = await supabase.rpc('vote_insight_valuable', {
-      p_insight_id: insightId,
-      p_voter_id: voterId,
-    })
-
-    if (error) {
-      console.error('[vote_insight_valuable] RPC error:', error.message, { insightId, voterId })
-      return false
-    }
-
-    if (data === true) {
-      setVotedInsightIds((prev) => new Set(prev).add(insightId))
-      setValuableCounts((prev) => {
-        const current = prev[insightId] ?? insights.find((i) => i.id === insightId)?.valuable_count ?? 0
-        return { ...prev, [insightId]: current + 1 }
-      })
-      return true
-    }
-    return false
-  }
-
-  // Build insights with updated valuable counts (uses shuffled order)
-  const insightsWithCounts = shuffledInsights.map((i) => ({
-    ...i,
-    valuable_count: valuableCounts[i.id] ?? i.valuable_count,
-  }))
-
-  // Filter insights based on selected filter
-  const filteredInsights = insightFilter === 'most_valuable'
-    ? [...insightsWithCounts].filter((i) => i.valuable_count > 0).sort((a, b) => b.valuable_count - a.valuable_count)
-    : insightsWithCounts
-
-  const insightStorageKey = `espresso_last_insight_${podcastSlug}`
   const tabStorageKey = `espresso_last_tab_${podcastSlug}`
-
-  function handleSelectInsight(insight: Insight) {
-    setSelectedInsight(insight)
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(insightStorageKey, insight.id)
-    }
-    // Auto-scroll breakdown to top when switching insights
-    if (breakdownRef.current) {
-      breakdownRef.current.scrollTop = 0
-    }
-  }
 
   useEffect(() => {
     if (!initialTab) return
-    setActiveTab(initialTab)
+    setActiveTab(normalizeInitialTab(initialTab))
   }, [initialTab])
 
   useEffect(() => {
@@ -322,8 +165,10 @@ export default function PodcastTabs({
       return
     }
     const stored = localStorage.getItem(tabStorageKey)
-    if (stored === 'insights' || stored === 'concepts' || stored === 'chat') {
-      setActiveTab(stored)
+    if (stored === 'chat') {
+      setActiveTab('chat')
+    } else if (stored === 'concepts' || stored === 'insights') {
+      setActiveTab('concepts')
     }
   }, [initialTab, tabStorageKey])
 
@@ -332,37 +177,6 @@ export default function PodcastTabs({
     localStorage.setItem(tabStorageKey, activeTab)
     syncTabToUrl(activeTab)
   }, [activeTab, tabStorageKey])
-
-  useEffect(() => {
-    if (!insights.length) {
-      setSelectedInsight(null)
-      return
-    }
-    const hasSelected = selectedInsight && insights.some((i) => i.id === selectedInsight.id)
-    if (hasSelected) return
-    
-    // Only auto-select first insight on desktop (lg breakpoint = 1024px)
-    // On mobile, start with no selection so user sees the list
-    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024
-    
-    let storedId: string | null = null
-    if (typeof window !== 'undefined') {
-      storedId = sessionStorage.getItem(insightStorageKey)
-    }
-    const storedInsight = storedId ? insights.find((i) => i.id === storedId) : null
-    
-    // On mobile: only restore if there was a stored selection, otherwise show list
-    // On desktop: default to first insight for the 2-column layout
-    if (storedInsight) {
-      setSelectedInsight(storedInsight)
-    } else if (isDesktop) {
-      setSelectedInsight(shuffledInsights[0])
-    } else {
-      setSelectedInsight(null)
-    }
-  }, [insights, podcastSlug, selectedInsight])
-
-  // Right-hand breakdown uses its own scroll; no auto-advance on scroll.
 
   // Build conversation history for API
   function buildConversationHistory(): ConversationTurn[] {
@@ -467,24 +281,6 @@ export default function PodcastTabs({
 
   const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
     {
-      id: 'insights',
-      label: 'Insights',
-      icon: (
-        <svg
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-          <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-        </svg>
-      ),
-    },
-    {
       id: 'concepts',
       label: 'Concepts',
       icon: (
@@ -522,14 +318,6 @@ export default function PodcastTabs({
     },
   ]
 
-  const totalConceptPages = Math.max(1, Math.ceil(conceptTotal / conceptsPerPage))
-
-  function handleConceptPageChange(nextPage: number) {
-    const bounded = Math.min(totalConceptPages, Math.max(1, nextPage))
-    if (bounded === conceptPage) return
-    setConceptPage(bounded)
-  }
-
   return (
     <div className="flex flex-col flex-1">
       {/* ── Sticky Tab Bar ── */}
@@ -563,183 +351,6 @@ export default function PodcastTabs({
       {/* ── Tab Content ── */}
       <div className="flex-1">
         {/* ════════════════════════════════════════
-            INSIGHTS TAB
-           ════════════════════════════════════════ */}
-        {activeTab === 'insights' && (
-          <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 md:py-5">
-            {previewMode && (
-              <div className="mb-4 text-xs text-charcoal-500 bg-cream-100 border border-charcoal-200 rounded-lg px-3 py-2">
-                Showing temporary dry-run insights preview. These are not saved
-                records.
-              </div>
-            )}
-            {shuffledInsights.length === 0 ? (
-              <div className="py-20 text-center">
-                <p className="text-charcoal-400 font-serif italic text-lg">
-                  Insights are being generated…
-                </p>
-                <p className="text-sm text-charcoal-400 mt-2">
-                  Check back soon as we extract patterns from hundreds of
-                  conversations.
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Filter pills: All / Most Valuable */}
-                <div className="flex items-center gap-2 mb-5">
-                  <button
-                    onClick={() => setInsightFilter('all')}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      insightFilter === 'all'
-                        ? 'bg-charcoal-900 text-white shadow-sm'
-                        : 'bg-cream-100 text-charcoal-600 hover:bg-cream-200'
-                    }`}
-                  >
-                    All
-                    <span className={`ml-1.5 ${insightFilter === 'all' ? 'text-charcoal-300' : 'text-charcoal-400'}`}>
-                      {insightsWithCounts.length}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => setInsightFilter('most_valuable')}
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                      insightFilter === 'most_valuable'
-                        ? 'bg-charcoal-900 text-white shadow-sm'
-                        : 'bg-cream-100 text-charcoal-600 hover:bg-cream-200'
-                    }`}
-                  >
-                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                      <path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7zM9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9v1z" />
-                    </svg>
-                    Most Valuable
-                    <span className={`${insightFilter === 'most_valuable' ? 'text-charcoal-300' : 'text-charcoal-400'}`}>
-                      {insightsWithCounts.filter((i) => i.valuable_count > 0).length}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Desktop: 2-column, Mobile: single column with modal */}
-                <div className="hidden lg:grid lg:grid-cols-5 lg:gap-6">
-                  {/* Left: Insight Feed */}
-                  <div className="lg:col-span-2 space-y-3">
-                    {filteredInsights.map((insight) => (
-                      <InsightCard
-                        key={insight.id}
-                        insight={insight}
-                        isSelected={selectedInsight?.id === insight.id}
-                        onSelect={handleSelectInsight}
-                      />
-                    ))}
-                  </div>
-
-                  {/* Right: Expanded Breakdown */}
-                  <div className="lg:col-span-3 lg:sticky lg:top-[7.5rem] lg:self-start">
-                    <div
-                      ref={breakdownRef}
-                      className="lg:max-h-[calc(100vh-12rem)] lg:overflow-y-auto lg:pr-2 scrollbar-subtle"
-                    >
-                    {selectedInsight ? (
-                      <InsightBreakdown
-                        insight={{
-                          ...selectedInsight,
-                          valuable_count: valuableCounts[selectedInsight.id] ?? selectedInsight.valuable_count,
-                        }}
-                        isVoted={votedInsightIds.has(selectedInsight.id)}
-                        onVote={handleInsightVote}
-                        onClose={() => setSelectedInsight(null)}
-                        onDiscussInChat={handleDiscussInChat}
-                      />
-                    ) : (
-                      <div className="bg-cream-100/50 border border-dashed border-charcoal-200 rounded-xl p-12 text-center">
-                        <div className="space-y-3">
-                          <div className="w-12 h-12 bg-cream-200 rounded-full flex items-center justify-center mx-auto">
-                            <svg
-                              className="w-6 h-6 text-charcoal-300"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
-                              <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
-                            </svg>
-                          </div>
-                          <p className="text-sm text-charcoal-400 font-serif italic">
-                            Select an insight to see the full breakdown
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Mobile: Single column feed + full-screen breakdown */}
-                <div className="lg:hidden space-y-3">
-                  {!selectedInsight ? (
-                    filteredInsights.map((insight) => (
-                      <InsightCard
-                        key={insight.id}
-                        insight={insight}
-                        onSelect={handleSelectInsight}
-                      />
-                    ))
-                  ) : (
-                    <div className="animate-slide-up">
-                      {/* Sticky back button for mobile */}
-                      <div className="sticky top-[5.75rem] z-20 -mx-4 px-4 py-2.5 bg-cream-50/95 backdrop-blur-sm border-b border-charcoal-100">
-                        <button
-                          onClick={() => {
-                            setSelectedInsight(null)
-                            // Clear stored selection so list shows on refresh
-                            if (typeof window !== 'undefined') {
-                              sessionStorage.removeItem(insightStorageKey)
-                            }
-                          }}
-                          className="flex items-center gap-2 text-sm font-medium text-charcoal-600 hover:text-charcoal-900 active:text-charcoal-900 transition-colors"
-                        >
-                          <svg
-                            className="w-5 h-5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M19 12H5M12 19l-7-7 7-7" />
-                          </svg>
-                          Back to Insights
-                        </button>
-                      </div>
-                      <div className="pt-4">
-                        <InsightBreakdown
-                          insight={{
-                            ...selectedInsight,
-                            valuable_count: valuableCounts[selectedInsight.id] ?? selectedInsight.valuable_count,
-                          }}
-                          isVoted={votedInsightIds.has(selectedInsight.id)}
-                          onVote={handleInsightVote}
-                          onClose={() => {
-                            setSelectedInsight(null)
-                            if (typeof window !== 'undefined') {
-                              sessionStorage.removeItem(insightStorageKey)
-                            }
-                          }}
-                          onDiscussInChat={handleDiscussInChat}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ════════════════════════════════════════
             CONCEPTS TAB
            ════════════════════════════════════════ */}
         {activeTab === 'concepts' && (() => {
@@ -758,8 +369,6 @@ export default function PodcastTabs({
           const filteredConcepts = selectedCategory
             ? shuffledConcepts.filter((c) => c.category === selectedCategory)
             : shuffledConcepts
-          const pageStart = conceptTotal === 0 ? 0 : (conceptPage - 1) * conceptsPerPage + 1
-          const pageEnd = Math.min(conceptPage * conceptsPerPage, conceptTotal)
 
           return (
             <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 md:py-5">
@@ -769,36 +378,14 @@ export default function PodcastTabs({
                   are disabled in preview mode.
                 </div>
               )}
-              {isConceptsLoading ? (
+              {shuffledConcepts.length === 0 ? (
                 <div className="py-20 text-center">
                   <p className="text-charcoal-400 font-serif italic text-lg">
-                    Loading concepts…
+                    Concepts are being generated…
                   </p>
                   <p className="text-sm text-charcoal-400 mt-2">
-                    Fetching page {conceptPage} of {totalConceptPages}.
+                    Check back soon as we extract insights from the transcripts.
                   </p>
-                </div>
-              ) : shuffledConcepts.length === 0 ? (
-                <div className="py-20 text-center">
-                  {conceptsFetchAttempted ? (
-                    <>
-                      <p className="text-charcoal-400 font-serif italic text-lg">
-                        Concepts are being generated…
-                      </p>
-                      <p className="text-sm text-charcoal-400 mt-2">
-                        Check back soon as we extract insights from the transcripts.
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-charcoal-400 font-serif italic text-lg">
-                        Loading concepts…
-                      </p>
-                      <p className="text-sm text-charcoal-400 mt-2">
-                        Retrying now.
-                      </p>
-                    </>
-                  )}
                 </div>
               ) : (
                 <>
@@ -890,7 +477,9 @@ export default function PodcastTabs({
                     {/* Concepts List */}
                     <div className="flex-1 min-w-0">
                       <div className="mb-4 text-xs text-charcoal-500">
-                        Showing {pageStart}-{pageEnd} of {conceptTotal} concepts
+                        {selectedCategory
+                          ? `${filteredConcepts.length} concept${filteredConcepts.length === 1 ? '' : 's'} in this category`
+                          : `${conceptTotal} concept${conceptTotal === 1 ? '' : 's'}`}
                       </div>
                       {filteredConcepts.length === 0 ? (
                         <div className="py-20 text-center">
@@ -910,28 +499,6 @@ export default function PodcastTabs({
                           ))}
                         </div>
                       )}
-
-                      {!selectedCategory && conceptTotal > conceptsPerPage && (
-                        <div className="mt-6 flex items-center justify-between border-t border-charcoal-200 pt-4">
-                          <button
-                            onClick={() => handleConceptPageChange(conceptPage - 1)}
-                            disabled={conceptPage <= 1 || isConceptsLoading}
-                            className="px-3 py-2 text-sm rounded-lg border border-charcoal-200 text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Previous
-                          </button>
-                          <span className="text-sm text-charcoal-500">
-                            Page {conceptPage} of {totalConceptPages}
-                          </span>
-                          <button
-                            onClick={() => handleConceptPageChange(conceptPage + 1)}
-                            disabled={conceptPage >= totalConceptPages || isConceptsLoading}
-                            className="px-3 py-2 text-sm rounded-lg border border-charcoal-200 text-charcoal-600 hover:bg-cream-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                          >
-                            Next
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </>
@@ -948,45 +515,6 @@ export default function PodcastTabs({
             className="max-w-3xl mx-auto px-4 md:px-6 py-3 md:py-5 flex flex-col"
             style={{ minHeight: 'calc(100vh - 10rem)' }}
           >
-            {/* Context pin (from insight discussion) */}
-            {chatContext && (
-              <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-cream-100 rounded-lg border border-charcoal-100">
-                <svg
-                  className="w-4 h-4 text-charcoal-400 flex-shrink-0"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                <span className="text-xs text-charcoal-500">
-                  Discussing:{' '}
-                  <span className="font-medium text-charcoal-700">
-                    {chatContext}
-                  </span>
-                </span>
-                <button
-                  onClick={() => setChatContext(null)}
-                  className="ml-auto p-0.5 text-charcoal-300 hover:text-charcoal-500 transition-colors"
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M18 6L6 18M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            )}
-
             {/* Lightning Quiz Overlay */}
             {quizActive && (
               <div className="flex-1 flex flex-col bg-gradient-to-b from-amber-50/30 to-cream-50 rounded-xl border border-amber-100/50 overflow-y-auto">
@@ -1013,24 +541,8 @@ export default function PodcastTabs({
                   <p className="text-[14px] text-charcoal-600 max-w-sm leading-relaxed">
                     I&apos;m a <span className="font-serif font-semibold">living Bean</span> trained on 500+ hours of conversations with top operators. The more specific your question, the better I can help.
                   </p>
-                  {hasAccount ? (
+                  {canUseChat ? (
                     <div className="w-full max-w-sm space-y-4 pt-2">
-                      {/* Lightning Quiz prominent entry */}
-                      <button
-                        type="button"
-                        onClick={() => setQuizActive(true)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:border-amber-300 transition-all group"
-                      >
-                        <span className="text-lg group-hover:scale-110 transition-transform">&#9889;</span>
-                        <span className="text-sm font-medium">Lightning Quiz</span>
-                        <span className="text-[11px] text-amber-600 ml-1">- get personalized picks</span>
-                      </button>
-
-                      <div className="relative flex items-center justify-center">
-                        <div className="border-t border-charcoal-100 w-full" />
-                        <span className="absolute bg-cream-50 px-3 text-[10px] text-charcoal-400">or ask a question</span>
-                      </div>
-
                       <div className="space-y-2">
                       <p className="text-[10px] font-medium uppercase tracking-wider text-charcoal-400">Try something specific</p>
                       <div className="flex flex-wrap justify-center gap-2">
@@ -1266,7 +778,7 @@ export default function PodcastTabs({
             )}
 
             {/* Input area */}
-            {hasAccount ? (
+            {canUseChat ? (
               <div className="pt-3 border-t border-charcoal-200/60 bg-cream-50 sticky bottom-0 z-50">
                 {/* Lightning Quiz entry chip */}
                 {!quizActive && !isChatLoading && (
@@ -1446,12 +958,13 @@ export default function PodcastTabs({
         )}
       </div>
 
-      {/* Auth modal for chat gating */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        initialMode="signin"
-      />
+      {AUTH_REQUIRED && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          initialMode="signin"
+        />
+      )}
     </div>
   )
 }
