@@ -39,12 +39,40 @@ const TRACK_BADGE_LABELS: Record<SimulatorTrack, string> = {
   mixed: 'MIXED',
 }
 
-const TRACK_TENSION_LINES: Record<SimulatorTrack, string> = {
-  product: 'Most teams optimize the wrong thing here.',
-  growth: 'This decision splits top operators.',
-  strategy: 'Most teams miss the real leverage in this moment.',
-  leadership: 'This decision can change team trust for quarters.',
-  mixed: 'The obvious move is often the wrong one.',
+const TRACK_TENSION_LINES: Record<SimulatorTrack, string[]> = {
+  product: [
+    'Most teams optimize the wrong thing first.',
+    'The fastest fix can hide the real product risk.',
+    'This is where good PM instincts get tested.',
+  ],
+  growth: [
+    'One move can unlock growth, another can burn months.',
+    'The obvious growth lever is rarely the durable one.',
+    'This call separates experimentation from thrash.',
+  ],
+  strategy: [
+    'The wrong bet here compounds quietly.',
+    'Small strategic calls can reshape the whole roadmap.',
+    'This is where conviction meets uncertainty.',
+  ],
+  leadership: [
+    'This decision can strengthen trust or drain it.',
+    'What you reward here shapes team behavior fast.',
+    'People outcomes and business outcomes collide here.',
+  ],
+  mixed: [
+    'Competing priorities make this harder than it looks.',
+    'There is no clean win - only sharper tradeoffs.',
+    'Context shifts fast, your principles cannot.',
+  ],
+}
+
+function hashString(input: string): number {
+  let hash = 0
+  for (let i = 0; i < input.length; i += 1) {
+    hash = (hash * 31 + input.charCodeAt(i)) >>> 0
+  }
+  return hash
 }
 
 function cardTeaser(sim: ListItem): string | null {
@@ -55,6 +83,16 @@ function cardTeaser(sim: ListItem): string | null {
     return 'Your best acquisition channel just died, the board still expects growth, and nothing in your product changed. What do you fix first?'
   }
   return sim.teaser
+}
+
+function cardTension(sim: ListItem): string {
+  const options = TRACK_TENSION_LINES[sim.track]
+  return options[hashString(sim.slug || sim.id) % options.length]
+}
+
+function cardMinutes(sim: ListItem): number {
+  const minutes = Number.isFinite(sim.estimated_minutes) ? sim.estimated_minutes : 3
+  return Math.max(2, Math.min(8, Math.round(minutes)))
 }
 
 export default function SimulatorHubClient({ podcastSlug }: { podcastSlug: string }) {
@@ -214,28 +252,28 @@ export default function SimulatorHubClient({ podcastSlug }: { podcastSlug: strin
               className="group rounded-xl border border-charcoal-200 bg-white p-5 shadow-sm transition-colors h-full flex flex-col hover:border-accent-300"
             >
               <div className="flex flex-col h-full">
-                <div>
+                <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
                     {sim.cover_emoji && <span className="text-xl" aria-hidden>{sim.cover_emoji}</span>}
                     <span className="text-xs uppercase tracking-wide text-charcoal-500 font-medium">
                       {TRACK_BADGE_LABELS[sim.track]}
                     </span>
-                    <span className="text-xs text-charcoal-400">· 5 decisions · ~3 min</span>
+                    <span className="text-xs text-charcoal-400">· 5 decisions · ~{cardMinutes(sim)} min</span>
                   </div>
                   <h2 className="text-lg md:text-xl font-serif text-charcoal-900 mb-2">{sim.title}</h2>
                   {cardTeaser(sim) && (
                     <p className="text-charcoal-600 text-sm leading-relaxed">{cardTeaser(sim)}</p>
                   )}
-                  <p className="text-xs text-charcoal-500 mt-2">{TRACK_TENSION_LINES[sim.track]}</p>
+                  <p className="text-xs text-charcoal-500 mt-2">{cardTension(sim)}</p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-charcoal-100 opacity-0 translate-y-1 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto">
+                <div className="mt-auto pt-3 border-t border-charcoal-100 opacity-0 translate-y-1 pointer-events-none transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:translate-y-0 group-focus-within:pointer-events-auto">
                 <button
                   type="button"
                   onClick={() => startSimulation(sim.id)}
                   disabled={!!startingId}
                   className="w-full rounded-md border border-accent-600 bg-transparent px-4 py-2 text-sm font-medium text-accent-600 transition-colors hover:bg-[#FFF4ED] group-hover:bg-[#FFF4ED] group-hover:text-accent-700 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {startingId === sim.id ? 'Starting…' : 'Make Decisions'}
+                  {startingId === sim.id ? 'Starting…' : 'Step In'}
                 </button>
                 </div>
               </div>
