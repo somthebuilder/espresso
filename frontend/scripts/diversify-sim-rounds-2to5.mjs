@@ -20,6 +20,16 @@ function pick(arr, key) {
   return arr[hashInt(key) % arr.length]
 }
 
+function pickDistinct(arr, key, used) {
+  if (!arr.length) return ''
+  const start = hashInt(key) % arr.length
+  for (let i = 0; i < arr.length; i += 1) {
+    const candidate = arr[(start + i) % arr.length]
+    if (!used.has(candidate)) return candidate
+  }
+  return arr[start]
+}
+
 function themeFromTitle(title) {
   return String(title).includes(':') ? String(title).split(':').slice(1).join(':').trim() : String(title)
 }
@@ -64,6 +74,13 @@ const choicePoolsByTrack = {
     'Prioritize one high-friction user segment and optimize deeply',
     'Instrument a missing funnel step before larger product changes',
     'Cut lower-priority work to protect a focused product strike team',
+    'Time-box a usability debt sprint before adding net-new features',
+    'Freeze non-critical launches and fix first-run experience bottlenecks',
+    'Replace one bloated workflow with a simpler guided path',
+    'Define one activation milestone and remove steps that do not support it',
+    'Run side-by-side onboarding variants for only the at-risk cohort',
+    'De-scope advanced settings and ship a default-first product flow',
+    'Pair PM and design on daily friction triage with engineering',
   ],
   growth: [
     'Protect highest-quality cohorts and cut low-intent spend',
@@ -71,6 +88,13 @@ const choicePoolsByTrack = {
     'Launch two micro-channel tests with strict stop-rules',
     'Consolidate spend into one proven channel and pause the rest',
     'Pair channel experiments with onboarding conversion fixes',
+    'Move budget to referral and partner loops with capped downside',
+    'Prioritize reactivation campaigns for recently dormant users',
+    'Create channel-level guardrails tied to payback period targets',
+    'Reduce top-of-funnel spend and optimize signup-to-value velocity',
+    'Run geo-specific experiments before global campaign rollout',
+    'Test pricing and messaging bundles for the highest-LTV segments',
+    'Rebalance growth roadmap toward retention-led expansion levers',
   ],
   strategy: [
     'Commit to a single thesis with explicit kill criteria',
@@ -78,6 +102,13 @@ const choicePoolsByTrack = {
     'Delay expansion until one critical assumption is validated',
     'Re-scope the bet to a wedge market before broader rollout',
     'Protect optionality by staging decisions at fixed review gates',
+    'Sequence the strategy into reversible and irreversible commitments',
+    'Set downside triggers before increasing strategic exposure',
+    'Narrow focus to one region before multi-market execution',
+    'Trade near-term growth for higher confidence in core unit economics',
+    'Reframe the bet around one customer segment with strongest pull',
+    'Pause adjacent initiatives to protect the primary strategic thesis',
+    'Build a contingency path if adoption misses early signal thresholds',
   ],
   leadership: [
     'Set one accountable owner and publish weekly decision cadence',
@@ -85,6 +116,13 @@ const choicePoolsByTrack = {
     'Address expectation gaps directly with a 30-day operating plan',
     'Protect hiring/performance bar despite short-term pressure',
     'Reassign responsibilities to reduce decision bottlenecks',
+    'Codify decision rights to reduce escalation churn',
+    'Pair underperforming managers with explicit coaching milestones',
+    'Reset team goals around one shared execution principle',
+    'Create a weekly trust-and-delivery review with clear owners',
+    'Address role ambiguity before adding headcount',
+    'Rebalance senior attention toward highest-friction team interfaces',
+    'Set behavioral norms and tie them to performance feedback cycles',
   ],
   mixed: [
     'Set a shared north-star metric and one counter-metric',
@@ -92,6 +130,13 @@ const choicePoolsByTrack = {
     'Cut one conflicting priority to restore focus',
     'Sequence execution into 2-week checkpoints with kill-rules',
     'Publish a cross-functional decision memo with owners and deadlines',
+    'Define an operating contract across teams for the next 30 days',
+    'Escalate only decisions that violate agreed guardrails',
+    'Reduce scope to one critical path and defer non-essential asks',
+    'Create a red-team review before committing additional resources',
+    'Align product, GTM, and ops on one measurable success condition',
+    'Use a weekly risk ledger to force explicit trade-off decisions',
+    'Assign one integrator role to unblock cross-functional dependencies',
   ],
 }
 
@@ -263,9 +308,10 @@ const takeawayTemplatesByTrack = {
   ],
 }
 
-function makeChoice(track, theme, roundNum, slot, slug) {
+function makeChoice(track, theme, roundNum, slot, slug, usedLabels) {
   const pool = choicePoolsByTrack[track] ?? choicePoolsByTrack.mixed
-  const label = pick(pool, `${slug}:${track}:r${roundNum}:${slot}`)
+  const label = pickDistinct(pool, `${slug}:${track}:r${roundNum}:${slot}`, usedLabels)
+  usedLabels.add(label)
   const weights = [
     { speedVsDepth: 0.25, shortVsLong: 0.15, riskVsConviction: 0.1 },
     { speedVsDepth: -0.2, shortVsLong: -0.2, riskVsConviction: 0.05 },
@@ -353,11 +399,12 @@ async function main() {
     const theme = themeFromTitle(sim.title)
     const track = sim.track
     const trackPrompts = promptsByTrack[track] ?? promptsByTrack.mixed
+    const usedLabels = new Set()
 
     for (let r = 2; r <= 5; r += 1) {
       const promptTemplate = pick(trackPrompts[r], `${sim.slug}:${track}:prompt:r${r}`)
       const prompt = promptTemplate.replaceAll('{theme}', theme)
-      const choices = [0, 1, 2].map((slot) => makeChoice(track, theme, r, slot, sim.slug))
+      const choices = [0, 1, 2].map((slot) => makeChoice(track, theme, r, slot, sim.slug, usedLabels))
       const roundObj = { prompt, choices }
       const idx = r - 1
       if (idx < rounds.length) rounds[idx] = roundObj
