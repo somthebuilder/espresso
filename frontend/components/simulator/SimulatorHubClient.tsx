@@ -40,19 +40,19 @@ const TRACK_BADGE_LABELS: Record<SimulatorTrack, string> = {
 }
 
 const TRACK_TENSION_LINES: Record<SimulatorTrack, string> = {
-  product: 'Tests your product judgment under pressure.',
-  growth: 'No obvious right answer.',
-  strategy: 'Most teams optimize the wrong thing.',
-  leadership: 'Decisions here shape team trust.',
-  mixed: 'Trade-offs matter more than speed.',
+  product: 'Most teams optimize the wrong thing here.',
+  growth: 'This decision splits top operators.',
+  strategy: 'Most teams miss the real leverage in this moment.',
+  leadership: 'This decision can change team trust for quarters.',
+  mixed: 'The obvious move is often the wrong one.',
 }
 
 function cardTeaser(sim: ListItem): string | null {
   if (sim.title === 'The Activation Cliff') {
-    return 'Activation just dropped 40% and every team has a different "quick fix." You have one shot to decide what actually matters.'
+    return 'Activation just dropped 40% and every team has a different "quick fix." Users are leaving, and you still do not know why.'
   }
   if (sim.title === 'Growth Without the Spend') {
-    return 'Your best acquisition channel just died, and the board still expects growth. What do you fix first?'
+    return 'Your best acquisition channel just died, the board still expects growth, and nothing in your product changed. What do you fix first?'
   }
   return sim.teaser
 }
@@ -154,11 +154,8 @@ export default function SimulatorHubClient({ podcastSlug }: { podcastSlug: strin
         </Link>
       </p>
       <h1 className="text-2xl md:text-3xl font-serif text-charcoal-900 mb-2">Operator Simulator</h1>
-      <p className="text-sm md:text-base text-charcoal-600 max-w-2xl leading-relaxed mb-3">
-        Train your decision-making like a top operator.
-      </p>
       <p className="text-sm md:text-base text-charcoal-600 max-w-2xl leading-relaxed mb-6">
-        No theory. Just decisions, trade-offs, and consequences.
+        Train your decision-making like a top operator.
       </p>
 
       {quota && (
@@ -207,40 +204,44 @@ export default function SimulatorHubClient({ podcastSlug }: { podcastSlug: strin
         <p className="text-charcoal-600 text-sm">No simulations match this filter. Try a different track.</p>
       ) : (
         <div>
-          <p className="text-sm text-charcoal-600 mb-4">Pick a scenario. No right answers, only trade-offs.</p>
-          <ul className="space-y-4">
+          <p className="text-sm text-charcoal-600 mb-4">
+            Pick a scenario. No right answers - only tradeoffs that reveal how you think.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((sim) => (
-            <li
+            <article
               key={sim.id}
-              className="rounded-xl border border-charcoal-200 bg-white p-5 md:p-6 shadow-sm hover:border-charcoal-300 transition-colors"
+              className="rounded-xl border border-charcoal-200 bg-white p-5 shadow-sm hover:border-charcoal-300 transition-colors h-full flex flex-col"
             >
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div className="flex flex-col h-full">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     {sim.cover_emoji && <span className="text-xl" aria-hidden>{sim.cover_emoji}</span>}
                     <span className="text-xs uppercase tracking-wide text-charcoal-500 font-medium">
                       {TRACK_BADGE_LABELS[sim.track]}
                     </span>
-                    <span className="text-xs text-charcoal-400">· 5 decisions · ~8 min</span>
+                    <span className="text-xs text-charcoal-400">· 5 decisions · ~3 min</span>
                   </div>
                   <h2 className="text-lg md:text-xl font-serif text-charcoal-900 mb-2">{sim.title}</h2>
                   {cardTeaser(sim) && (
-                    <p className="text-charcoal-600 text-sm leading-relaxed max-w-xl">{cardTeaser(sim)}</p>
+                    <p className="text-charcoal-600 text-sm leading-relaxed">{cardTeaser(sim)}</p>
                   )}
                   <p className="text-xs text-charcoal-500 mt-2">{TRACK_TENSION_LINES[sim.track]}</p>
                 </div>
+                <div className="mt-4 pt-3 border-t border-charcoal-100">
                 <button
                   type="button"
                   onClick={() => startSimulation(sim.id)}
                   disabled={!!startingId}
-                  className="btn-accent shrink-0 self-start md:self-center"
+                  className="btn-accent w-full"
                 >
                   {startingId === sim.id ? 'Starting…' : 'Make Decisions'}
                 </button>
+                </div>
               </div>
-            </li>
+            </article>
           ))}
-          </ul>
+          </div>
         </div>
       )}
     </main>

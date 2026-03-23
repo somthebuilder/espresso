@@ -4,11 +4,11 @@
  * 
  * Uses:
  * - OpenAI for embeddings (vector search)
- * - Gemini for LLM responses (cost-effective)
+ * - OpenAI for LLM responses
  */
 import { generateEmbedding } from './embeddings'
 import { searchChunks, ChunkResult } from './supabase-vector-search'
-import { generateText } from './gemini-client'
+import { generateText } from './openai-client'
 
 export interface GuestResponse {
   guest_id: string
@@ -122,7 +122,7 @@ function buildContext(chunks: ChunkResult[]): string {
 
 /**
  * Generate response using guest persona prompt
- * Uses Gemini for cost-effective text generation
+ * Uses OpenAI for text generation
  */
 async function generateWithPersona(
   query: string,
@@ -153,7 +153,7 @@ User's question: ${safeQuery}
 Your response:`
 
   try {
-    // Use Gemini for LLM generation (cheaper than OpenAI)
+    // Use OpenAI for LLM generation
     const response = await generateText(prompt, {
       maxTokens: 500,
       temperature: 0.7,
