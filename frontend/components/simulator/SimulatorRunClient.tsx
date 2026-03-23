@@ -31,6 +31,14 @@ function youtubeEmbedUrl(url: string | null): string | null {
   return null
 }
 
+function normalizeFeedbackLine(text: string | null | undefined, label: string): string {
+  const value = (text ?? '').trim()
+  if (!value) return ''
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const prefixRegex = new RegExp(`^${escaped}\\s*:\\s*`, 'i')
+  return value.replace(prefixRegex, '').trim()
+}
+
 export default function SimulatorRunClient({
   podcastSlug,
   runId,
@@ -512,15 +520,15 @@ export default function SimulatorRunClient({
             <div className="space-y-3 text-sm text-charcoal-700 mb-4">
               <p>
                 <span className="text-charcoal-500 font-medium">Immediate impact: </span>
-                {feedbackChoice.feedback.layer1}
+                {normalizeFeedbackLine(feedbackChoice.feedback.layer1, 'Immediate impact')}
               </p>
               <p>
                 <span className="text-charcoal-500 font-medium">Trade-off: </span>
-                {feedbackChoice.feedback.layer2}
+                {normalizeFeedbackLine(feedbackChoice.feedback.layer2, 'Trade-off')}
               </p>
               <p>
                 <span className="text-charcoal-500 font-medium">If repeated: </span>
-                {feedbackChoice.feedback.layer3}
+                {normalizeFeedbackLine(feedbackChoice.feedback.layer3, 'If repeated')}
               </p>
             </div>
 

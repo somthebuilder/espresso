@@ -95,6 +95,174 @@ const choicePoolsByTrack = {
   ],
 }
 
+const impactTemplatesByTrack = {
+  product: [
+    'You reduced ambiguity around product risk before scaling effort.',
+    'You chose a product-quality signal over a purely optics-driven move.',
+    'You focused the team on one product truth instead of parallel debates.',
+  ],
+  growth: [
+    'You optimized for compounding growth quality, not just activity volume.',
+    'You created a clearer growth learning loop for the next cycle.',
+    'You traded short-term certainty for stronger growth signal quality.',
+  ],
+  strategy: [
+    'You made the strategic bet size explicit instead of drifting into it.',
+    'You constrained downside while preserving room to learn.',
+    'You clarified the strategic thesis the team should execute against.',
+  ],
+  leadership: [
+    'You created clearer ownership and expectations across the team.',
+    'You reduced coordination drag by defining a single operating stance.',
+    'You made people implications explicit, not just delivery implications.',
+  ],
+  mixed: [
+    'You turned a noisy situation into a sharper operating direction.',
+    'You picked a concrete trade-off instead of deferring the hard call.',
+    'You narrowed the decision space so execution can move faster.',
+  ],
+}
+
+const tradeoffTemplatesByTrack = {
+  product: [
+    'This improves learning speed, but can defer visible wins stakeholders expect now.',
+    'This protects product integrity, but may feel slower to teams pushing immediate output.',
+    'This increases clarity, but raises pressure on execution discipline in the next sprint.',
+  ],
+  growth: [
+    'This can improve efficiency, but may soften headline growth in the short term.',
+    'This creates cleaner demand signal, but requires stronger cross-team coordination.',
+    'This protects long-term growth quality, but can look conservative in weekly reviews.',
+  ],
+  strategy: [
+    'This limits downside exposure, but may under-capture upside if the market moves fast.',
+    'This protects optionality, but can feel less decisive to stakeholders seeking certainty.',
+    'This sharpens strategic focus, but increases risk if the core assumption is wrong.',
+  ],
+  leadership: [
+    'This creates accountability, but may surface short-term friction in team dynamics.',
+    'This improves alignment, but requires consistent follow-through from leadership.',
+    'This can raise team trust, but slows decisions if escalation paths are unclear.',
+  ],
+  mixed: [
+    'This restores focus, but leaves less room for parallel bets.',
+    'This improves execution coherence, but narrows experimentation capacity.',
+    'This raises decision quality, but demands stricter operating cadence.',
+  ],
+}
+
+const repeatedTemplatesByTrack = {
+  product: [
+    'If repeated, this builds a culture of evidence-led product calls.',
+    'If repeated, teams get faster at separating user signal from internal noise.',
+    'If repeated, roadmap choices become clearer and less political.',
+  ],
+  growth: [
+    'If repeated, growth execution compounds around higher-quality signals.',
+    'If repeated, the team becomes better at stopping low-leverage growth work early.',
+    'If repeated, channel and product decisions stay better synchronized.',
+  ],
+  strategy: [
+    'If repeated, strategic decisions become more testable and less narrative-driven.',
+    'If repeated, the org gets better at balancing conviction with optionality.',
+    'If repeated, large bets are reviewed with clearer assumptions and triggers.',
+  ],
+  leadership: [
+    'If repeated, team trust improves through consistent decision mechanics.',
+    'If repeated, the org learns faster because ownership and reviews stay explicit.',
+    'If repeated, performance conversations become clearer and fairer.',
+  ],
+  mixed: [
+    'If repeated, cross-functional execution gets materially more predictable.',
+    'If repeated, teams spend less time debating and more time shipping.',
+    'If repeated, decision quality improves even under shifting constraints.',
+  ],
+}
+
+const operatorLineTemplatesByTrack = {
+  product: [
+    'Top product operators anchor calls in user evidence, then sequence execution tightly.',
+    'Strong PM leaders isolate the core product risk before expanding scope.',
+    'Experienced product teams make one clear bet, then measure it brutally.',
+  ],
+  growth: [
+    'Great growth operators protect signal quality and kill weak loops quickly.',
+    'High-performing growth teams pair channel bets with retention discipline.',
+    'Experienced growth leaders prioritize repeatable loops over vanity spikes.',
+  ],
+  strategy: [
+    'Strong strategists define explicit assumptions, triggers, and downside plans up front.',
+    'Top operators stage major bets and review them against real signal, not narratives.',
+    'Experienced strategy teams make conviction visible and reversibility explicit.',
+  ],
+  leadership: [
+    'Strong leaders clarify ownership and operating cadence before pressure compounds.',
+    'Top leadership teams reduce ambiguity by naming decision rights early.',
+    'Experienced leaders align people systems with business priorities, not slogans.',
+  ],
+  mixed: [
+    'Strong operators simplify decision surfaces so teams can execute under pressure.',
+    'Top cross-functional leaders turn conflicting goals into explicit operating rules.',
+    'Experienced teams keep execution moving by making trade-offs legible to everyone.',
+  ],
+}
+
+const whatTheyDidTemplatesByTrack = {
+  product: [
+    ['Defined the key user problem precisely', 'Sequenced one focused fix', 'Reviewed outcomes against product signal'],
+    ['Narrowed to one leverage point', 'Aligned design and engineering on scope', 'Measured downstream retention impact'],
+    ['Validated assumptions with user evidence', 'Set tight success criteria', 'Adjusted roadmap based on observed behavior'],
+  ],
+  growth: [
+    ['Prioritized one measurable growth loop', 'Set clear spend and stop rules', 'Reallocated budget based on cohort quality'],
+    ['Separated acquisition from retention effects', 'Focused on highest-intent segments', 'Scaled only what improved unit economics'],
+    ['Time-boxed growth experiments', 'Tracked lagging and leading signals', 'Killed low-leverage channels quickly'],
+  ],
+  strategy: [
+    ['Made assumptions explicit', 'Set decision checkpoints', 'Adjusted bet size as signal changed'],
+    ['Defined downside boundaries', 'Protected core execution', 'Revisited thesis with fresh evidence'],
+    ['Staged the commitment', 'Named kill criteria early', 'Aligned leadership on one strategic narrative'],
+  ],
+  leadership: [
+    ['Clarified ownership and interfaces', 'Set a weekly decision cadence', 'Resolved conflicts at the right level'],
+    ['Named behavioral expectations', 'Linked accountability to outcomes', 'Rebalanced load across the team'],
+    ['Aligned incentives and priorities', 'Reduced escalation ambiguity', 'Reviewed team health alongside delivery'],
+  ],
+  mixed: [
+    ['Chose one operating priority', 'Made trade-offs explicit across teams', 'Tracked execution against clear checkpoints'],
+    ['Cut conflicting workstreams', 'Defined owners and timelines', 'Escalated only unresolved high-risk decisions'],
+    ['Created a shared decision memo', 'Established review rhythm', 'Adjusted quickly to new constraints'],
+  ],
+}
+
+const takeawayTemplatesByTrack = {
+  product: [
+    'Product leverage comes from clear signal, then disciplined execution.',
+    'Clarity before scale prevents expensive product drift.',
+    'One sharp product decision beats three hedged ones.',
+  ],
+  growth: [
+    'Compounding growth follows signal quality, not activity volume.',
+    'Efficient growth is built, not wished into existence.',
+    'Sustainable growth is a sequencing problem, not a sprint.',
+  ],
+  strategy: [
+    'Great strategy is explicit trade-offs plus explicit triggers.',
+    'Bet sizing matters as much as bet selection.',
+    'Strategic clarity compounds when reversibility is named early.',
+  ],
+  leadership: [
+    'Leadership quality shows up in decision mechanics under pressure.',
+    'Trust compounds when ownership and expectations stay clear.',
+    'People systems are strategy execution in disguise.',
+  ],
+  mixed: [
+    'Operating clarity is the multiplier in messy environments.',
+    'Trade-offs become execution only when owners are explicit.',
+    'Pressure rewards clarity more than complexity.',
+  ],
+}
+
 function makeChoice(track, theme, roundNum, slot, slug) {
   const pool = choicePoolsByTrack[track] ?? choicePoolsByTrack.mixed
   const label = pick(pool, `${slug}:${track}:r${roundNum}:${slot}`)
@@ -108,17 +276,17 @@ function makeChoice(track, theme, roundNum, slot, slug) {
     id: ids[slot],
     label: `${label} for "${theme}"`,
     feedback: {
-      layer1: 'You made an explicit operator trade-off.',
-      layer2: 'Trade-off: this improves one axis while introducing execution risk elsewhere.',
-      layer3: 'If repeated, this pattern shapes team behavior and decision quality.',
+      layer1: pick(impactTemplatesByTrack[track] ?? impactTemplatesByTrack.mixed, `${slug}:${track}:impact:r${roundNum}:${slot}`),
+      layer2: pick(tradeoffTemplatesByTrack[track] ?? tradeoffTemplatesByTrack.mixed, `${slug}:${track}:tradeoff:r${roundNum}:${slot}`),
+      layer3: pick(repeatedTemplatesByTrack[track] ?? repeatedTemplatesByTrack.mixed, `${slug}:${track}:repeat:r${roundNum}:${slot}`),
     },
     layer4_static: {
       headline: 'How real operators approached this',
-      operatorLine: 'Strong operators set clear owners, explicit assumptions, and review rhythms.',
-      whatTheyDid: ['Named the decision owner', 'Set measurable checkpoints', 'Adjusted based on evidence'],
+      operatorLine: pick(operatorLineTemplatesByTrack[track] ?? operatorLineTemplatesByTrack.mixed, `${slug}:${track}:operator:r${roundNum}:${slot}`),
+      whatTheyDid: pick(whatTheyDidTemplatesByTrack[track] ?? whatTheyDidTemplatesByTrack.mixed, `${slug}:${track}:what:r${roundNum}:${slot}`),
       impact: ['Faster alignment', 'Cleaner accountability'],
       videoUrl: null,
-      takeaway: 'Quality decisions are clear, testable, and revisited on cadence.',
+      takeaway: pick(takeawayTemplatesByTrack[track] ?? takeawayTemplatesByTrack.mixed, `${slug}:${track}:takeaway:r${roundNum}:${slot}`),
     },
     profileWeights: weights,
     citationQueryHint: `${track} ${theme} round ${roundNum} operator tradeoff decision cadence`,
