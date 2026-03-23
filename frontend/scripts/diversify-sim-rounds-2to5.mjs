@@ -272,13 +272,47 @@ function makeChoice(track, theme, roundNum, slot, slug) {
     { speedVsDepth: 0.05, shortVsLong: 0.05, riskVsConviction: 0.25 },
   ][slot]
   const ids = ['a', 'b', 'c']
+  const cleanedTheme = String(theme).replace(/[^a-z0-9\s-]/gi, ' ').replace(/\s+/g, ' ').trim()
+  const labelKeywords = String(label)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 3)
+    .slice(0, 4)
+    .join(' ')
+  const hintSeeds = {
+    product: 'product decision user friction onboarding retention diagnosis',
+    growth: 'growth loop cac ltv retention acquisition channel experiment',
+    strategy: 'strategy bet optionality downside scenario timing conviction',
+    leadership: 'leadership hiring ownership trust accountability team conflict',
+    mixed: 'cross-functional tradeoff execution constraint prioritization alignment',
+  }
+  const baseHint = hintSeeds[track] ?? hintSeeds.mixed
+
+  function stripPrefix(s, prefix) {
+    return String(s).replace(new RegExp(`^${prefix}\\s*:\\s*`, 'i'), '').trim()
+  }
+
+  const layer1 = stripPrefix(
+    pick(impactTemplatesByTrack[track] ?? impactTemplatesByTrack.mixed, `${slug}:${track}:impact:r${roundNum}:${slot}`),
+    'Immediate impact'
+  )
+  const layer2 = stripPrefix(
+    pick(tradeoffTemplatesByTrack[track] ?? tradeoffTemplatesByTrack.mixed, `${slug}:${track}:tradeoff:r${roundNum}:${slot}`),
+    'Trade-off'
+  )
+  const layer3 = stripPrefix(
+    pick(repeatedTemplatesByTrack[track] ?? repeatedTemplatesByTrack.mixed, `${slug}:${track}:repeat:r${roundNum}:${slot}`),
+    'If repeated'
+  )
+
   return {
     id: ids[slot],
     label: `${label} for "${theme}"`,
     feedback: {
-      layer1: pick(impactTemplatesByTrack[track] ?? impactTemplatesByTrack.mixed, `${slug}:${track}:impact:r${roundNum}:${slot}`),
-      layer2: pick(tradeoffTemplatesByTrack[track] ?? tradeoffTemplatesByTrack.mixed, `${slug}:${track}:tradeoff:r${roundNum}:${slot}`),
-      layer3: pick(repeatedTemplatesByTrack[track] ?? repeatedTemplatesByTrack.mixed, `${slug}:${track}:repeat:r${roundNum}:${slot}`),
+      layer1,
+      layer2,
+      layer3,
     },
     layer4_static: {
       headline: 'How real operators approached this',
@@ -289,7 +323,7 @@ function makeChoice(track, theme, roundNum, slot, slug) {
       takeaway: pick(takeawayTemplatesByTrack[track] ?? takeawayTemplatesByTrack.mixed, `${slug}:${track}:takeaway:r${roundNum}:${slot}`),
     },
     profileWeights: weights,
-    citationQueryHint: `${track} ${theme} round ${roundNum} operator tradeoff decision cadence`,
+    citationQueryHint: `${baseHint} ${cleanedTheme} ${labelKeywords} round-${roundNum} operator-case`,
   }
 }
 
