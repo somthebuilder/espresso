@@ -86,7 +86,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <img src="/espressologo.png" alt="" className="w-8 h-8 object-contain" />
+            <img src="/espresso-logo.png" alt="espresso" className="w-8 h-8 object-contain" />
             <span className="font-cafe italic text-xl text-espresso-700">espresso</span>
           </div>
           <p className="text-sm text-charcoal-500">

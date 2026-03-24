@@ -1,4 +1,4 @@
-# Espresso RAG Implementation Plan
+# espresso — RAG implementation plan
 
 Status: Draft v1  
 Owner: Product + Engineering  
@@ -6,7 +6,7 @@ Scope: Lenny's Podcast first, multi-knowledge-base ready
 
 ## 1) Purpose
 
-This document defines the production implementation plan for Espresso RAG:
+This document defines the production implementation plan for espresso RAG:
 
 - Ship a grounded, citation-first chat and concept/insight experience for Lenny's Podcast.
 - Make onboarding a new knowledge base at least 90% repeatable through config and runbooks.

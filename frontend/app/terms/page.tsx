@@ -17,7 +17,7 @@ export default function TermsOfServicePage() {
               onClick={() => router.push('/')}
               className="flex items-center gap-2 group"
             >
-              <img src="/espressologo.png" alt="" className="w-6 h-6 object-contain" />
+              <img src="/espresso-logo.png" alt="espresso" className="w-6 h-6 object-contain" />
               <span className="text-lg font-serif font-semibold text-charcoal-900 group-hover:text-charcoal-700 transition-colors">
                 espresso
               </span>
@@ -46,7 +46,7 @@ export default function TermsOfServicePage() {
           <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-lg">
             <p className="text-sm font-semibold text-charcoal-900 mb-2">🚨 IMPORTANT NOTICE</p>
             <p className="text-sm text-charcoal-700 leading-relaxed mb-2">
-              Espresso is a <strong>FREE, experimental, educational, non-commercial project</strong> by an individual developer.
+              espresso is a <strong>FREE, experimental, educational, non-commercial project</strong> by an individual developer.
             </p>
             <p className="text-sm text-charcoal-700 leading-relaxed">
               <strong>ALL podcast content belongs to its original creators.</strong> We claim NO ownership or rights. 
@@ -59,14 +59,14 @@ export default function TermsOfServicePage() {
             <section className="mb-8">
               <h2 className="text-2xl font-bold text-charcoal-900 mb-4">1. Acceptance of Terms</h2>
               <p className="text-charcoal-700 leading-relaxed">
-                By accessing or using Espresso (the &quot;Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree to these Terms, do not use the Service.
+                By accessing or using espresso (the &quot;Service&quot;), you agree to be bound by these Terms of Service (&quot;Terms&quot;). If you do not agree to these Terms, do not use the Service.
               </p>
             </section>
 
             {/* Description */}
             <section className="mb-8">
               <h2 className="text-2xl font-bold text-charcoal-900 mb-4">2. Description of Service</h2>
-              <p className="text-charcoal-700 mb-3">Espresso is an AI-powered service that allows users to:</p>
+              <p className="text-charcoal-700 mb-3">espresso is an AI-powered service that allows users to:</p>
               <ul className="list-disc pl-6 space-y-2 text-charcoal-700 mb-4">
                 <li>Explore synthesized concepts and knowledge bases from podcast transcripts</li>
                 <li>Ask questions and receive AI-generated responses grounded in transcript evidence</li>
@@ -145,7 +145,7 @@ export default function TermsOfServicePage() {
               
               <h3 className="text-xl font-semibold text-charcoal-800 mb-3">Our Rights</h3>
               <p className="text-charcoal-700 mb-4">
-                The Service, including all content and functionality, is owned by Espresso and is protected by copyright, trademark, and other intellectual property laws.
+                The Service, including all content and functionality, is owned by espresso and is protected by copyright, trademark, and other intellectual property laws.
               </p>
 
               <h3 className="text-xl font-semibold text-charcoal-800 mb-3">Source Material</h3>
@@ -159,7 +159,7 @@ export default function TermsOfServicePage() {
               <p className="text-charcoal-700 mb-3">You may use AI-generated responses for personal, non-commercial purposes. If sharing publicly, you should:</p>
               <ul className="list-disc pl-6 space-y-2 text-charcoal-700 mb-4">
                 <li>Disclose that it was AI-generated</li>
-                <li>Attribute the source material (e.g., &quot;Based on Lenny&apos;s Podcast transcripts via Espresso&quot;)</li>
+                <li>Attribute the source material (e.g., &quot;Based on Lenny&apos;s Podcast transcripts via espresso&quot;)</li>
                 <li>Verify accuracy before relying on it</li>
               </ul>
             </section>
@@ -196,7 +196,7 @@ export default function TermsOfServicePage() {
               <div className="bg-red-50 border-l-4 border-red-500 p-4">
                 <h3 className="text-lg font-semibold text-charcoal-900 mb-2">Limitation of Liability</h3>
                 <p className="text-charcoal-700 mb-3">
-                  TO THE MAXIMUM EXTENT PERMITTED BY LAW, ESPRESSO SHALL NOT BE LIABLE FOR:
+                  TO THE MAXIMUM EXTENT PERMITTED BY LAW, espresso SHALL NOT BE LIABLE FOR:
                 </p>
                 <ul className="list-disc pl-6 space-y-2 text-charcoal-700">
                   <li>Any indirect, incidental, special, or consequential damages</li>

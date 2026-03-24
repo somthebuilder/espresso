@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a static content archive containing 303 episode transcripts from Lenny's Podcast, with an AI-generated topic index for easy discovery.
+This repository contains **espresso** (Next.js app in `frontend/`), a static archive of **303** episode transcripts from Lenny's Podcast, an AI-generated topic index under `index/`, and supporting Python pipeline and Supabase migrations.
+
+## Design system & brand
+
+- **Palette**: cream (`cream-*`) backgrounds, charcoal (`charcoal-*`) text, **espresso brown** (`espresso-*`) for brand warmth and secondary emphasis, muted orange **accent** (`accent-*`) for primary actions and links (`frontend/tailwind.config.js`, `frontend/app/globals.css`).
+- **Typography**: Inter for UI and body; Source Serif 4 for headings and editorial prose; **Playfair Display italic** via `font-cafe` for the **espresso** wordmark in the hero and header—do not use `font-cafe` for long paragraphs.
+- **Wordmark**: always **`espresso`** (lowercase), matching the live UI.
+- **Docs & markdown**: use **sentence-case headings** (only the first word and proper nouns capitalized). Keep **`espresso`** lowercase when it appears in titles.
 
 ## Structure
 

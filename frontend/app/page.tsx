@@ -289,7 +289,7 @@ export default function LandingPage() {
       <main className="flex-1 flex flex-col items-center justify-center px-6 py-8 md:py-10">
         <div className="max-w-3xl w-full space-y-8 md:space-y-10 text-center">
 
-          {/* ── Hero: The Espresso Masthead ── */}
+          {/* ── Hero: the espresso masthead ── */}
           <div className="space-y-0">
             {/* Top decorative rule + dateline */}
             <div className="opacity-0 animate-hero-enter flex items-center gap-4 justify-center mb-4 md:mb-6">
@@ -310,8 +310,8 @@ export default function LandingPage() {
                   <div className="steam-wisp animate-steam-3 h-[12px]" />
                 </div>
               <img
-                src="/espressologo.png"
-                  alt=""
+                src="/espresso-logo.png"
+                  alt="espresso"
                   className="w-16 h-16 md:w-20 md:h-20 object-contain drop-shadow-lg"
               />
               </div>

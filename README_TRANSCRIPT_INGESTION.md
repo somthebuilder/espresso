@@ -1,6 +1,6 @@
 # Transcript & Data Ingestion Pipeline
 
-A comprehensive pipeline for ingesting Lenny's Podcast transcripts, extracting structured data using LLM (Gemini), and storing in normalized Supabase tables. Part of the [Espresso](Updated_Final_PRD.md) project.
+A comprehensive pipeline for ingesting Lenny's Podcast transcripts, extracting structured data using LLM (Gemini), and storing in normalized Supabase tables. Part of **espresso** ([Updated_Final_PRD.md](Updated_Final_PRD.md)).
 
 ## Features
 
@@ -16,7 +16,7 @@ A comprehensive pipeline for ingesting Lenny's Podcast transcripts, extracting s
 | Table | Rows | Notes |
 |---|---|---|
 | `guests` | 284 | Guest profiles with roles, companies, fun facts |
-| `episodes` | 302 | Full episode metadata + transcript hashes |
+| `episodes` | 303 | Full episode metadata + transcript hashes |
 | `segments` | 6,249 | Typed segments: intro, sponsor, interview, lightning_round, outro |
 | `lightning_round_answers` | 246 | Structured Q&A per episode |
 | `sponsor_mentions` | 812 | Sponsor ads with CTA URLs |

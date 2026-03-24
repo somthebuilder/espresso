@@ -1,4 +1,4 @@
-# Espresso — Product Requirements Document (v2)
+# espresso — Product requirements (v2)
 
 > Last updated: February 2026
 > Status: Active — frontend redesign complete, concept pipeline and RAG wiring in progress.
@@ -7,7 +7,7 @@
 
 ## 1. Product Definition
 
-Espresso is a knowledge product that:
+espresso is a knowledge product that:
 
 - distills long-form podcast conversations into clear, well-written concepts
 - allows users to query the collective knowledge of podcast guests via chat
@@ -29,7 +29,7 @@ Espresso is a knowledge product that:
 
 ## 3. User Mental Model
 
-A user comes to Espresso to:
+A user comes to espresso to:
 
 - understand how experienced operators think
 - see where smart people agree and disagree
@@ -546,7 +546,7 @@ These are from the old Panels product and are no longer routed to:
 
 ---
 
-## 19. What Makes Espresso Defensible
+## 19. What makes this defensible
 
 - Editorial judgment
 - Traceability
@@ -557,10 +557,10 @@ These are from the old Panels product and are no longer routed to:
 
 ---
 
-## Final Product Test
+## Final product test
 
 If users say: *"This feels like how smart people actually reason, not just what they say."*
-→ Espresso is working.
+→ espresso is working.
 
 If they say: *"This is an AI summary tool."*
 → You missed the point.

@@ -17,7 +17,7 @@ export default function PrivacyPolicyPage() {
               onClick={() => router.push('/')}
               className="flex items-center gap-2 group"
             >
-              <img src="/espressologo.png" alt="" className="w-6 h-6 object-contain" />
+              <img src="/espresso-logo.png" alt="espresso" className="w-6 h-6 object-contain" />
               <span className="text-lg font-serif font-semibold text-charcoal-900 group-hover:text-charcoal-700 transition-colors">
                 espresso
               </span>
@@ -46,7 +46,7 @@ export default function PrivacyPolicyPage() {
           <div className="mb-8 p-4 bg-cream-100 border-l-4 border-charcoal-400 rounded-r-lg">
             <p className="text-sm font-semibold text-charcoal-900 mb-2">⚠️ Experimental Project Notice</p>
             <p className="text-sm text-charcoal-700 leading-relaxed">
-              Espresso is a <strong>free, experimental, educational, and non-commercial project</strong> created for research and learning purposes. 
+              espresso is a <strong>free, experimental, educational, and non-commercial project</strong> created for research and learning purposes. 
               All podcast content belongs to its original creators. Not affiliated with any podcast or creator.
             </p>
           </div>
@@ -56,7 +56,7 @@ export default function PrivacyPolicyPage() {
             <section className="mb-8">
               <h2 className="text-2xl font-bold text-charcoal-900 mb-4">Introduction</h2>
               <p className="text-charcoal-700 leading-relaxed mb-4">
-                Welcome to Espresso (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our service (the &quot;Service&quot;).
+                Welcome to espresso (&quot;we,&quot; &quot;our,&quot; or &quot;us&quot;). We respect your privacy and are committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our service (the &quot;Service&quot;).
               </p>
             </section>
 

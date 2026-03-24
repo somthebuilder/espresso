@@ -1,6 +1,6 @@
 # Learnings — LLM Apps, Edge Functions & Full-Stack Debugging
 
-Hard-won lessons from building Espresso (podcast RAG + AI chat). Reference this before starting any new LLM-powered project.
+Hard-won lessons from building espresso (podcast RAG + AI chat). Reference this before starting any new LLM-powered project.
 
 ---
 

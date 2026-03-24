@@ -73,7 +73,7 @@ module.exports = {
           800: '#065F46',
           900: '#064E3B',
         },
-        // Espresso Brown (brand color for coming-soon / neutral accent)
+        // espresso wordmark color scale (lowercase brand; hero uses font-cafe + warm gradient)
         espresso: {
           50: '#FAF5F0',
           100: '#F3EAE0',

@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: 'espresso | Collective wisdom from the world\'s best operators',
   description: 'Explore synthesized knowledge, concepts, and insights from top podcasts and thought leaders.',
   icons: {
-    icon: '/favicon.svg',
+    icon: '/espresso-logo.png',
   },
 }
 

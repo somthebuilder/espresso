@@ -27,7 +27,7 @@ export default function Header({ themeGraphHref, simulatorHref }: HeaderProps) {
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5 group">
-            <img src="/espressologo.png" alt="" className="w-7 h-7 object-contain transition-transform duration-300 group-hover:scale-105" />
+            <img src="/espresso-logo.png" alt="espresso" className="w-7 h-7 object-contain transition-transform duration-300 group-hover:scale-105" />
             <span className="font-cafe italic text-lg text-espresso-600 group-hover:text-espresso-500 transition-colors select-none">
               espresso
             </span>
