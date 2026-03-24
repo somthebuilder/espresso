@@ -1,5 +1,7 @@
 # Lenny's Podcast archive · espresso
 
+**Repository:** [github.com/somthebuilder/espresso](https://github.com/somthebuilder/espresso)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">

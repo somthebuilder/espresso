@@ -1,4 +1,4 @@
-// Load repo-root .env so GEMINI_* / other keys work when only LennyandFriends/.env exists
+// Load repo-root .env so GEMINI_* / other keys work when only the monorepo root has .env
 // (Next.js only auto-loads .env* from this directory, i.e. frontend/.)
 const path = require('path')
 try {
