@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import ConceptCard from '@/components/concepts/ConceptCard'
 import { Concept } from '@/lib/api/concepts'
+import { searchConcepts } from '@/lib/concept-search'
 import { sendMessage, submitQuiz, ConversationTurn } from '@/lib/api/chat'
 import { ChatMessage, QuizPath, QuizResponse } from '@/lib/types/rag'
 import LightningQuiz from '@/components/quiz/LightningQuiz'
@@ -66,6 +67,7 @@ export default function PodcastTabs({
   const [conceptItems, setConceptItems] = useState<Concept[]>(concepts)
   const [conceptTotal, setConceptTotal] = useState(conceptsTotal)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [conceptQuery, setConceptQuery] = useState('')
 
   // Shuffle key: increments on tab switch so card order feels fresh each time
   const [shuffleKey, setShuffleKey] = useState(0)
@@ -136,6 +138,7 @@ export default function PodcastTabs({
 
   useEffect(() => {
     setSelectedCategory(null)
+    setConceptQuery('')
   }, [podcastSlug])
 
   function syncTabToUrl(tabId: TabId) {
@@ -354,9 +357,12 @@ export default function PodcastTabs({
             CONCEPTS TAB
            ════════════════════════════════════════ */}
         {activeTab === 'concepts' && (() => {
-          // Extract unique categories that have concepts
+          const isSearching = conceptQuery.trim().length > 0
+          const searchedConcepts = searchConcepts(shuffledConcepts, conceptQuery)
+
+          // Category counts reflect the current search so pills never point at empty results
           const categoryMap = new Map<string, number>()
-          shuffledConcepts.forEach((c) => {
+          searchedConcepts.forEach((c) => {
             if (c.category) {
               categoryMap.set(c.category, (categoryMap.get(c.category) || 0) + 1)
             }
@@ -364,11 +370,23 @@ export default function PodcastTabs({
           const availableCategories = Array.from(categoryMap.entries())
             .sort((a, b) => b[1] - a[1]) // Sort by count descending
             .map(([cat]) => cat)
+          if (selectedCategory && !categoryMap.has(selectedCategory)) {
+            availableCategories.push(selectedCategory)
+          }
 
-          // Filter concepts by selected category
           const filteredConcepts = selectedCategory
-            ? shuffledConcepts.filter((c) => c.category === selectedCategory)
-            : shuffledConcepts
+            ? searchedConcepts.filter((c) => c.category === selectedCategory)
+            : searchedConcepts
+          const allCount = isSearching ? searchedConcepts.length : conceptTotal
+
+          const resultLabel = (() => {
+            const n = filteredConcepts.length
+            const noun = `concept${n === 1 ? '' : 's'}`
+            if (isSearching && selectedCategory) return `${n} ${noun} matching “${conceptQuery.trim()}” in ${selectedCategory}`
+            if (isSearching) return `${n} ${noun} matching “${conceptQuery.trim()}”`
+            if (selectedCategory) return `${n} ${noun} in this category`
+            return `${conceptTotal} concept${conceptTotal === 1 ? '' : 's'}`
+          })()
 
           return (
             <div className="max-w-5xl mx-auto px-4 md:px-6 py-3 md:py-5">
@@ -402,7 +420,7 @@ export default function PodcastTabs({
                       >
                         All
                         <span className={`ml-1.5 ${selectedCategory === null ? 'text-charcoal-300' : 'text-charcoal-400'}`}>
-                          {selectedCategory === null ? conceptTotal : filteredConcepts.length}
+                          {allCount}
                         </span>
                       </button>
                       {availableCategories.map((category) => {
@@ -444,8 +462,8 @@ export default function PodcastTabs({
                         >
                           <span className="flex items-center justify-between">
                             All
-                            <span className={`text-xs ${selectedCategory === null ? 'text-charcoal-400' : 'text-charcoal-400'}`}>
-                              {selectedCategory === null ? conceptTotal : filteredConcepts.length}
+                            <span className="text-xs text-charcoal-400">
+                              {allCount}
                             </span>
                           </span>
                         </button>
@@ -476,16 +494,74 @@ export default function PodcastTabs({
 
                     {/* Concepts List */}
                     <div className="flex-1 min-w-0">
-                      <div className="mb-4 text-xs text-charcoal-500">
-                        {selectedCategory
-                          ? `${filteredConcepts.length} concept${filteredConcepts.length === 1 ? '' : 's'} in this category`
-                          : `${conceptTotal} concept${conceptTotal === 1 ? '' : 's'}`}
+                      <div className="relative mb-3">
+                        <svg
+                          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-charcoal-400"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <circle cx="11" cy="11" r="7" />
+                          <path d="M20 20l-3.5-3.5" />
+                        </svg>
+                        <input
+                          type="search"
+                          value={conceptQuery}
+                          onChange={(e) => setConceptQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') setConceptQuery('')
+                          }}
+                          placeholder="Search concepts, guests, or topics"
+                          aria-label="Search concepts"
+                          className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-cream-100 border border-transparent text-sm text-charcoal-800 placeholder:text-charcoal-400 focus:outline-none focus:bg-white focus:border-accent-300 focus:ring-2 focus:ring-accent-100 transition-colors [&::-webkit-search-cancel-button]:hidden"
+                        />
+                        {isSearching && (
+                          <button
+                            type="button"
+                            onClick={() => setConceptQuery('')}
+                            aria-label="Clear search"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-charcoal-400 hover:text-charcoal-700 hover:bg-cream-200 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M18 6L6 18M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                      <div className="mb-4 text-xs text-charcoal-500" aria-live="polite">
+                        {resultLabel}
                       </div>
                       {filteredConcepts.length === 0 ? (
-                        <div className="py-20 text-center">
+                        <div className="py-20 text-center space-y-3">
                           <p className="text-charcoal-400 font-serif italic text-lg">
-                            No concepts found in this category.
+                            {isSearching
+                              ? `No concepts match “${conceptQuery.trim()}”${selectedCategory ? ` in ${selectedCategory}` : ''}.`
+                              : 'No concepts found in this category.'}
                           </p>
+                          {isSearching && (
+                            <div className="flex items-center justify-center gap-4 text-sm">
+                              {selectedCategory && (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedCategory(null)}
+                                  className="text-accent-600 hover:text-accent-700 font-medium"
+                                >
+                                  Search all categories
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setConceptQuery('')}
+                                className="text-accent-600 hover:text-accent-700 font-medium"
+                              >
+                                Clear search
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div className="space-y-0">
