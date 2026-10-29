@@ -15,7 +15,8 @@ const corsHeaders = {
 /* ================================================================== */
 /*  CONFIG                                                             */
 /* ================================================================== */
-const GEMINI_CHAT_MODEL = "gemini-2.0-flash";
+const OPENAI_CHAT_MODEL =
+  Deno.env.get("OPENAI_CHAT_MODEL") ?? "gpt-4o-mini";
 const GEMINI_EMBED_MODEL = "models/text-embedding-004";
 const OPENAI_EMBED_MODEL = "text-embedding-3-small";
 
@@ -213,73 +214,89 @@ async function embedWithOpenAi(
 }
 
 /* ================================================================== */
-/*  EMBED TEXT (Gemini first, OpenAI fallback)                         */
+/*  EMBED TEXT (OpenAI first, Gemini fallback)                         */
 /* ================================================================== */
 async function embedText(
-  geminiKey: string | null,
   openAiKey: string | null,
+  geminiKey: string | null,
   text: string,
   taskType: "RETRIEVAL_QUERY" | "RETRIEVAL_DOCUMENT" = "RETRIEVAL_QUERY"
 ): Promise<number[]> {
-  if (geminiKey) {
+  if (openAiKey) {
     try {
-      return await embedWithGemini(geminiKey, text, taskType);
-    } catch (geminiErr) {
-      console.error("Gemini embedding failed, trying OpenAI fallback:", geminiErr);
-      if (openAiKey) return await embedWithOpenAi(openAiKey, text);
-      throw geminiErr;
+      return await embedWithOpenAi(openAiKey, text);
+    } catch (openAiErr) {
+      console.error("OpenAI embedding failed, trying Gemini fallback:", openAiErr);
+      if (geminiKey) return await embedWithGemini(geminiKey, text, taskType);
+      throw openAiErr;
     }
   }
-  if (openAiKey) return await embedWithOpenAi(openAiKey, text);
+  if (geminiKey) return await embedWithGemini(geminiKey, text, taskType);
   throw new Error("No embedding API key available");
 }
 
 /* ================================================================== */
-/*  GEMINI CHAT GENERATION                                             */
+/*  OPENAI CHAT GENERATION                                             */
 /* ================================================================== */
-async function geminiChat(
+async function openaiChat(
   apiKey: string,
   systemInstruction: string,
   messages: Array<{ role: string; parts: Array<{ text: string }> }>,
   temperature = 0.4,
   maxTokens = 1024,
-  responseSchema?: unknown
+  jsonMode = false
 ): Promise<string> {
-  const body: Record<string, unknown> = {
-    system_instruction: { parts: [{ text: systemInstruction }] },
-    contents: messages,
-    generationConfig: {
-      temperature,
-      maxOutputTokens: maxTokens,
-      ...(responseSchema
-        ? {
-            responseMimeType: "application/json",
-            responseSchema,
-          }
-        : {}),
+  const openAiMessages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }> = [
+    {
+      role: "system",
+      content: jsonMode
+        ? `${systemInstruction}\n\nRespond with valid JSON only.`
+        : systemInstruction,
     },
+  ];
+
+  for (const msg of messages) {
+    const role =
+      msg.role === "user"
+        ? "user"
+        : msg.role === "model" || msg.role === "assistant"
+          ? "assistant"
+          : "user";
+    openAiMessages.push({
+      role,
+      content: msg.parts.map((p) => p.text).join("\n"),
+    });
+  }
+
+  const body: Record<string, unknown> = {
+    model: OPENAI_CHAT_MODEL,
+    messages: openAiMessages,
+    temperature,
+    max_tokens: maxTokens,
+    ...(jsonMode ? { response_format: { type: "json_object" } } : {}),
   };
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_CHAT_MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    }
-  );
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Gemini chat failed: ${res.status} ${err}`);
+    throw new Error(`OpenAI chat failed: ${res.status} ${err}`);
   }
 
   const payload = await res.json();
   const text =
-    (payload?.candidates?.[0]?.content?.parts?.[0]?.text as
-      | string
-      | undefined) ?? "";
-  if (!text) throw new Error("Gemini returned empty text");
+    (payload?.choices?.[0]?.message?.content as string | undefined) ?? "";
+  if (!text) throw new Error("OpenAI returned empty text");
   return text;
 }
 
@@ -334,41 +351,6 @@ Examples that should NEVER trigger clarification:
 /* ================================================================== */
 /*  STEP 1: CLASSIFY INTENT — does query need clarification?           */
 /* ================================================================== */
-const CLASSIFY_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    needs_clarification: {
-      type: "BOOLEAN",
-      description:
-        "true ONLY if the message is completely unsearchable (single generic word with zero context). Almost always false.",
-    },
-    reason: {
-      type: "STRING",
-      description:
-        "Brief reason why clarification is needed, or 'clear' if not needed",
-    },
-    clarification_questions: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        properties: {
-          text: {
-            type: "STRING",
-            description: "The clarifying question in Bean's voice",
-          },
-          quick_reply: {
-            type: "STRING",
-            description:
-              "A short suggested reply chip (e.g. 'Career growth' or 'Product metrics')",
-          },
-        },
-        required: ["text"],
-      },
-      description: "1-2 clarifying questions ONLY if absolutely necessary, empty array otherwise",
-    },
-  },
-  required: ["needs_clarification", "reason", "clarification_questions"],
-};
 
 // Detect greetings & casual chitchat that have no searchable podcast topic
 const GREETING_PATTERNS: RegExp[] = [
@@ -390,7 +372,7 @@ function isGreetingOrChitchat(input: string): boolean {
 }
 
 async function classifyIntent(
-  geminiKey: string,
+  openAiKey: string,
   message: string,
   conversationHistory: ConversationMessage[]
 ): Promise<{
@@ -439,15 +421,17 @@ Examples that are CLEAR (needs_clarification: false):
 Examples that NEED clarification (needs_clarification: true):
 - "hi" → not searchable
 - "help" → not searchable
-- "?" → not searchable`;
+- "?" → not searchable
 
-  const raw = await geminiChat(
-    geminiKey,
+Return JSON: { "needs_clarification": boolean, "reason": string, "clarification_questions": [{ "text": string, "quick_reply"?: string }] }`;
+
+  const raw = await openaiChat(
+    openAiKey,
     "You are a strict intent classifier. Your default answer is needs_clarification: false. Only flag true for completely unsearchable messages.",
     [{ role: "user", parts: [{ text: classifyPrompt }] }],
     0.0,
     200,
-    CLASSIFY_SCHEMA
+    true
   );
 
   try {
@@ -475,29 +459,12 @@ Examples that NEED clarification (needs_clarification: true):
 /* ================================================================== */
 /*  STEP 2: GENERATE ANSWER (with context)                             */
 /* ================================================================== */
-const ANSWER_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    answer: {
-      type: "STRING",
-      description:
-        "The complete answer in Bean's voice, with inline speaker attributions by name only. Do NOT include timestamps.",
-    },
-    has_sufficient_evidence: {
-      type: "BOOLEAN",
-      description: "Whether the provided context had enough evidence",
-    },
-  },
-  required: ["answer", "has_sufficient_evidence"],
-};
-
 async function generateAnswer(
-  geminiKey: string,
+  openAiKey: string,
   message: string,
   context: string,
   conversationHistory: ConversationMessage[]
 ): Promise<{ answer: string; hasSufficientEvidence: boolean }> {
-  // Build conversation turns for Gemini multi-turn format
   const turns: Array<{ role: string; parts: Array<{ text: string }> }> = [];
 
   // Include relevant history
@@ -513,18 +480,18 @@ async function generateAnswer(
     role: "user",
     parts: [
       {
-        text: `Here is relevant context from podcast transcripts:\n\n${context}\n\n---\nUser's question: ${message}\n\nProvide a grounded answer using ONLY the context above. Attribute ideas to speakers by name (e.g. "As Shreyas Doshi explains...") but do NOT include timestamps like (00:41:43) or [00:41:43] in your response text. Timestamps are shown separately in the sources section. If evidence is insufficient, say so honestly.`,
+        text: `Here is relevant context from podcast transcripts:\n\n${context}\n\n---\nUser's question: ${message}\n\nProvide a grounded answer using ONLY the context above. Attribute ideas to speakers by name (e.g. "As Shreyas Doshi explains...") but do NOT include timestamps like (00:41:43) or [00:41:43] in your response text. Timestamps are shown separately in the sources section. If evidence is insufficient, say so honestly.\n\nReturn JSON: { "answer": string, "has_sufficient_evidence": boolean }`,
       },
     ],
   });
 
-  const raw = await geminiChat(
-    geminiKey,
+  const raw = await openaiChat(
+    openAiKey,
     BEAN_SYSTEM_PROMPT,
     turns,
     0.4,
     1024,
-    ANSWER_SCHEMA
+    true
   );
 
   try {
@@ -546,7 +513,7 @@ async function generateAnswer(
 /*  STEP 3: BUILD CLARIFICATION RESPONSE (Bean voice)               */
 /* ================================================================== */
 async function buildClarificationResponse(
-  geminiKey: string,
+  openAiKey: string,
   message: string,
   questions: ClarificationQuestion[],
   conversationHistory: ConversationMessage[]
@@ -572,8 +539,8 @@ Write a brief, natural response in Bean's voice that:
 
 Just return the text, no JSON.`;
 
-  return await geminiChat(
-    geminiKey,
+  return await openaiChat(
+    openAiKey,
     BEAN_SYSTEM_PROMPT,
     [{ role: "user", parts: [{ text: prompt }] }],
     0.5,
@@ -803,10 +770,10 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const geminiKey = getFirstEnv(["GEMINI_API_KEY", "GOOGLE_API_KEY"]);
   const openAiKey = getFirstEnv(["OPENAI_API_KEY", "OpenAI_API_KEY"]);
+  const geminiKey = getFirstEnv(["GEMINI_API_KEY", "GOOGLE_API_KEY"]);
 
-  if (!supabaseUrl || !supabaseServiceRoleKey || !geminiKey) {
+  if (!supabaseUrl || !supabaseServiceRoleKey || !openAiKey) {
     return json(500, { error: "Missing required server configuration" });
   }
 
@@ -941,12 +908,13 @@ For show path: use show name as "title" and omit "author" or use genre.`;
 
     let quizResult;
     try {
-      const raw = await geminiChat(
-        geminiKey,
+      const raw = await openaiChat(
+        openAiKey,
         "You are Bean in Quiz Master mode. Be decisive, slightly bold, intellectually sharp. No safe picks. Return only valid JSON.",
         [{ role: "user", parts: [{ text: quizPrompt }] }],
         0.5,
-        1024
+        1024,
+        true
       );
       // Parse the JSON response (strip markdown fences if present)
       const cleaned = raw.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
@@ -983,7 +951,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: `gemini:${GEMINI_CHAT_MODEL}`,
+      model: `openai:${OPENAI_CHAT_MODEL}`,
       requestChars: quizPrompt.length,
       status: "success",
     });
@@ -1062,7 +1030,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: GEMINI_CHAT_MODEL,
+      model: OPENAI_CHAT_MODEL,
       requestChars: message.length,
       status: "rejected",
       errorCode: "repeated_input",
@@ -1080,7 +1048,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: GEMINI_CHAT_MODEL,
+      model: OPENAI_CHAT_MODEL,
       requestChars: message.length,
       status: "rejected",
       errorCode: "rate_limited_minute",
@@ -1098,7 +1066,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: GEMINI_CHAT_MODEL,
+      model: OPENAI_CHAT_MODEL,
       requestChars: message.length,
       status: "rejected",
       errorCode: "rate_limited_daily",
@@ -1129,7 +1097,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
   let classification;
   try {
     classification = await classifyIntent(
-      geminiKey,
+      openAiKey,
       message,
       conversationHistory
     );
@@ -1155,7 +1123,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     } else {
       try {
         clarificationText = await buildClarificationResponse(
-          geminiKey,
+          openAiKey,
           message,
           classification.clarification_questions,
           conversationHistory
@@ -1173,7 +1141,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: `gemini:${GEMINI_CHAT_MODEL}`,
+      model: `openai:${OPENAI_CHAT_MODEL}`,
       requestChars: message.length,
       status: "clarification",
     });
@@ -1217,12 +1185,12 @@ For show path: use show name as "title" and omit "author" or use genre.`;
   // Embed the query (Gemini first, OpenAI fallback to match stored 1536-dim vectors)
   let queryEmbedding: number[];
   try {
-      queryEmbedding = await embedText(geminiKey, openAiKey, message, "RETRIEVAL_QUERY");
+      queryEmbedding = await embedText(openAiKey, geminiKey, message, "RETRIEVAL_QUERY");
   } catch (err) {
     await logUsage(supabase, {
         userKey,
         podcastSlug,
-      model: `gemini:${GEMINI_CHAT_MODEL}`,
+      model: `openai:${OPENAI_CHAT_MODEL}`,
         requestChars: message.length,
         status: "failed",
         errorCode: "embedding_failed",
@@ -1252,7 +1220,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: `gemini:${GEMINI_CHAT_MODEL}`,
+      model: `openai:${OPENAI_CHAT_MODEL}`,
       requestChars: message.length,
       status: "failed",
       errorCode: "retrieval_failed",
@@ -1274,7 +1242,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: `gemini:${GEMINI_CHAT_MODEL}`,
+      model: `openai:${OPENAI_CHAT_MODEL}`,
       requestChars: message.length,
       contextChunks: chunks.length,
       bestSimilarity,
@@ -1366,7 +1334,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     .join("\n\n---\n\n");
 
   // ══════════════════════════════════════════════════════════════════
-  //  STEP 4: GENERATE ANSWER WITH GEMINI
+  //  STEP 4: GENERATE ANSWER WITH OPENAI
   // ══════════════════════════════════════════════════════════════════
   let answer: string;
   try {
@@ -1375,7 +1343,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         result = await generateAnswer(
-          geminiKey,
+          openAiKey,
           message,
           context,
           conversationHistory
@@ -1399,7 +1367,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
     await logUsage(supabase, {
       userKey,
       podcastSlug,
-      model: `gemini:${GEMINI_CHAT_MODEL}`,
+      model: `openai:${OPENAI_CHAT_MODEL}`,
       requestChars: message.length,
       contextChunks: chunks.length,
       bestSimilarity,
@@ -1456,7 +1424,7 @@ For show path: use show name as "title" and omit "author" or use genre.`;
   await logUsage(supabase, {
     userKey,
     podcastSlug,
-    model: `gemini:${GEMINI_CHAT_MODEL}`,
+    model: `openai:${OPENAI_CHAT_MODEL}`,
     requestChars: message.length,
     contextChunks: chunks.length,
     bestSimilarity,

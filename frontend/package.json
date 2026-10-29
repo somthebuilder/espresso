@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_TLS_REJECT_UNAUTHORIZED=0 next dev -p 3001",
+    "dev": "next dev -p 3001",
     "dev:3000": "next dev -p 3000",
     "dev:3002": "next dev -p 3002",
     "dev:3003": "next dev -p 3003",
