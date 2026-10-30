@@ -38,7 +38,7 @@ export default async function PodcastKnowledgeGraphPage({
       <main className="max-w-6xl mx-auto px-4 md:px-6 py-5 space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-wider text-charcoal-500">Multidimensional Theme Graph</p>
+            <p className="text-xs uppercase tracking-wider text-charcoal-500">Theme graph</p>
             <h1 className="text-2xl font-serif font-semibold text-charcoal-900">
               {graph.podcastName}
             </h1>

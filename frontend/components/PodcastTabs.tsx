@@ -11,9 +11,20 @@ import { useSpeechToText } from '@/hooks/useSpeechToText'
 import BeanAnimation from '@/components/BeanAnimation'
 import ReactMarkdown from 'react-markdown'
 import AuthModal from '@/components/AuthModal'
+import ChatComposer from '@/components/chat/ChatComposer'
+import { PODCAST_TABS, PodcastTabId } from '@/components/podcast-tabs-config'
 import { AUTH_REQUIRED } from '@/lib/auth-config'
 
-type TabId = 'concepts' | 'chat'
+type TabId = PodcastTabId
+
+const DAILY_QUESTION_LIMIT = 5
+
+const STARTER_QUESTIONS: { label: string; question: string }[] = [
+  { label: 'Shreyas Doshi on high-leverage work', question: 'What does Shreyas Doshi say about high-leverage work for PMs?' },
+  { label: 'Most recommended books for PMs', question: 'What books do guests recommend most for product managers?' },
+  { label: 'Data vs. intuition', question: 'Where do guests disagree on when to use data vs. intuition?' },
+  { label: 'Prioritization frameworks', question: 'What frameworks do guests use for prioritization?' },
+]
 
 interface PodcastTabsProps {
   podcastSlug: string
@@ -94,7 +105,7 @@ export default function PodcastTabs({
   const [quizActive, setQuizActive] = useState(false)
   const [quizCredits, setQuizCredits] = useState<number | null>(null)
   const [quizCreditsTotal, setQuizCreditsTotal] = useState<number | null>(null)
-  const chatScrollRef = useRef<HTMLDivElement>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
 
   // Local auth hint for chat gating when AUTH_REQUIRED (avoids client Supabase auth refresh calls)
   const [hasAccount, setHasAccount] = useState(false)
@@ -118,12 +129,20 @@ export default function PodcastTabs({
     if (isListening) setChatInput(transcript)
   }, [isListening, transcript])
 
-  // Scroll chat to bottom on new messages
+  // The page itself scrolls, so bring the newest message into view rather than scrolling a container
   useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight
-    }
+    if (messages.length === 0 && !isChatLoading) return
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
   }, [messages, isChatLoading])
+
+  // Floating widgets sit in the bottom-right corner, where the chat's send button lives
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    document.body.dataset.chatActive = activeTab === 'chat' ? 'true' : 'false'
+    return () => {
+      delete document.body.dataset.chatActive
+    }
+  }, [activeTab])
 
   // Track account hint for chat gating (only matters when AUTH_REQUIRED)
   useEffect(() => {
@@ -188,19 +207,16 @@ export default function PodcastTabs({
       .map((m) => ({ role: m.role, content: m.content }))
   }
 
-  // Chat submit
-  async function handleChatSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!chatInput.trim() || isChatLoading) return
+  async function askBean(text: string) {
+    const question = text.trim()
+    if (!question || isChatLoading || creditsRemaining === 0) return
 
-    // Detect "start lightning quiz" text trigger
-    if (chatInput.trim().toLowerCase().replace(/[^a-z ]/g, '').includes('lightning quiz')) {
+    if (question.toLowerCase().replace(/[^a-z ]/g, '').includes('lightning quiz')) {
       setChatInput('')
       setQuizActive(true)
       return
     }
 
-    // Stop any active speech session
     if (isListening) stopAndKeep()
 
     setChatError(null)
@@ -208,16 +224,15 @@ export default function PodcastTabs({
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: chatInput,
+      content: question,
     }
-    setMessages((prev) => [...prev, userMsg])
-
     const history = buildConversationHistory()
+    setMessages((prev) => [...prev, userMsg])
     setChatInput('')
     setIsChatLoading(true)
 
     try {
-      const response = await sendMessage(chatInput, podcastSlug, history, chatSessionId)
+      const response = await sendMessage(question, podcastSlug, history, chatSessionId)
       setMessages((prev) => [...prev, response])
       // Track session ID for multi-turn persistence
       if (response.session_id) {
@@ -237,6 +252,9 @@ export default function PodcastTabs({
         credits_total?: number
       }
       setChatError(err.message || 'Something went wrong. Try again.')
+      // Drop the unanswered question from the thread and hand it back so nothing has to be retyped
+      setMessages((prev) => prev.filter((m) => m.id !== userMsg.id))
+      setChatInput(question)
       if (err.credits_remaining !== undefined) {
         setCreditsRemaining(err.credits_remaining)
       }
@@ -248,9 +266,12 @@ export default function PodcastTabs({
     }
   }
 
-  // Quick reply chip click (for clarification)
-  function handleQuickReply(text: string) {
-    setChatInput(text)
+  function startNewChat() {
+    setMessages([])
+    setChatSessionId(undefined)
+    setChatError(null)
+    setChatInput('')
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   // Lightning Quiz submit handler
@@ -282,44 +303,26 @@ export default function PodcastTabs({
     setChatInput('')
   }
 
-  const tabs: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    {
-      id: 'concepts',
-      label: 'Concepts',
-      icon: (
-        <svg
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
-        </svg>
-      ),
-    },
-    {
-      id: 'chat',
-      label: 'Chat',
-      icon: (
-        <svg
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      ),
-    },
-  ]
+  const hasConversation = messages.length > 0
+  const composerPlaceholder = isListening
+    ? 'Listening…'
+    : creditsRemaining === 0
+      ? "You've used today's questions. Back tomorrow."
+      : hasConversation
+        ? 'Ask a follow-up…'
+        : 'Ask about product, growth, hiring, leadership…'
+  const creditsLine =
+    creditsRemaining !== null && creditsTotal !== null
+      ? `${creditsRemaining} of ${creditsTotal} questions left today`
+      : `${DAILY_QUESTION_LIMIT} free questions a day`
+  const speechProps = {
+    isSupported: sttSupported,
+    isListening,
+    elapsed,
+    error: sttError,
+    onToggle: handleMicClick,
+    onCancel: handleCancelSpeech,
+  }
 
   return (
     <div className="flex flex-col flex-1">
@@ -327,7 +330,7 @@ export default function PodcastTabs({
       <div className="sticky top-14 z-30 bg-cream-50/95 backdrop-blur-md border-b border-charcoal-200/50">
         <div className="max-w-5xl mx-auto px-4 md:px-6">
           <nav className="flex gap-1" role="tablist">
-            {tabs.map((tab) => (
+            {PODCAST_TABS.map((tab) => (
               <button
                 key={tab.id}
                 role="tab"
@@ -588,12 +591,11 @@ export default function PodcastTabs({
            ════════════════════════════════════════ */}
         {activeTab === 'chat' && (
           <div
-            className="max-w-3xl mx-auto px-4 md:px-6 py-3 md:py-5 flex flex-col"
-            style={{ minHeight: 'calc(100vh - 10rem)' }}
+            className="max-w-3xl mx-auto w-full px-4 md:px-6 flex flex-col"
+            style={{ minHeight: 'calc(100dvh - 7rem)' }}
           >
-            {/* Lightning Quiz Overlay */}
-            {quizActive && (
-              <div className="flex-1 flex flex-col bg-gradient-to-b from-amber-50/30 to-cream-50 rounded-xl border border-amber-100/50 overflow-y-auto">
+            {quizActive ? (
+              <div className="flex-1 flex flex-col my-4 md:my-6 bg-gradient-to-b from-amber-50/30 to-cream-50 rounded-xl border border-amber-100/50 overflow-y-auto">
                 <LightningQuiz
                   podcastSlug={podcastSlug}
                   onExit={() => setQuizActive(false)}
@@ -602,433 +604,278 @@ export default function PodcastTabs({
                   quizCreditsTotal={quizCreditsTotal}
                 />
               </div>
-            )}
+            ) : !hasConversation ? (
+              /* ── First visit: the question box sits with the introduction, not at the bottom edge ── */
+              <div className="flex-1 flex flex-col items-center justify-center text-center py-10 md:py-14">
+                <BeanAnimation size={72} />
+                <h2 className="mt-4 text-2xl md:text-3xl font-serif font-semibold text-charcoal-900 tracking-tight">
+                  What do you want to learn?
+                </h2>
+                <p className="mt-2 text-sm md:text-[15px] text-charcoal-500 max-w-md leading-relaxed">
+                  Bean answers from 300+ episode transcripts and links every answer to the moment it was said.
+                </p>
 
-            {/* Messages */}
-            {!quizActive && (
-            <div
-              ref={chatScrollRef}
-              className="flex-1 overflow-y-auto space-y-5 pb-4"
-            >
-              {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center space-y-4 px-6 py-12">
-                  {/* Bean avatar */}
-                  <BeanAnimation size={84} />
-                  <p className="text-[14px] text-charcoal-600 max-w-sm leading-relaxed">
-                    I&apos;m a <span className="font-serif font-semibold">living Bean</span> trained on 500+ hours of conversations with top operators. The more specific your question, the better I can help.
-                  </p>
+                <div className="mt-7 w-full max-w-xl text-left">
                   {canUseChat ? (
-                    <div className="w-full max-w-sm space-y-4 pt-2">
-                      <div className="space-y-2">
-                      <p className="text-[10px] font-medium uppercase tracking-wider text-charcoal-400">Try something specific</p>
-                      <div className="flex flex-wrap justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setChatInput('What does Shreyas Doshi say about high-leverage work for PMs?')}
-                          className="text-xs px-3 py-1.5 rounded-full bg-cream-100 text-charcoal-600 hover:bg-cream-200 transition-colors text-left"
-                        >
-                          Shreyas Doshi on high-leverage PM work
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setChatInput('How did Airbnb recover growth after COVID?')}
-                          className="text-xs px-3 py-1.5 rounded-full bg-cream-100 text-charcoal-600 hover:bg-cream-200 transition-colors text-left"
-                        >
-                          Airbnb&apos;s post-COVID growth
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setChatInput('What books do guests recommend most for product managers?')}
-                          className="text-xs px-3 py-1.5 rounded-full bg-cream-100 text-charcoal-600 hover:bg-cream-200 transition-colors text-left"
-                        >
-                          Top books for PMs
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setChatInput('Where do guests disagree on when to use data vs. intuition?')}
-                          className="text-xs px-3 py-1.5 rounded-full bg-cream-100 text-charcoal-600 hover:bg-cream-200 transition-colors text-left"
-                        >
-                          Data vs. intuition debates
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setChatInput('What frameworks do guests use for prioritization?')}
-                          className="text-xs px-3 py-1.5 rounded-full bg-cream-100 text-charcoal-600 hover:bg-cream-200 transition-colors text-left"
-                        >
-                          Prioritization frameworks
-                        </button>
-                      </div>
-                      </div>
-                    </div>
+                    <ChatComposer
+                      variant="hero"
+                      autoFocus
+                      value={chatInput}
+                      onChange={(value) => {
+                        if (isListening) stopAndKeep()
+                        setChatInput(value)
+                        setChatError(null)
+                      }}
+                      onSubmit={() => askBean(chatInput)}
+                      placeholder={composerPlaceholder}
+                      disabled={creditsRemaining === 0}
+                      isLoading={isChatLoading}
+                      speech={speechProps}
+                    />
                   ) : (
-                    <div className="w-full max-w-sm space-y-4 pt-4">
-                      <div className="h-px bg-charcoal-200/50 w-12 mx-auto" />
-                      <p className="text-[13px] text-charcoal-500">
-                        Sign in to start chatting with Bean
-                      </p>
-                      <button
-                        onClick={() => { setShowAuthModal(true) }}
-                        className="btn-primary text-sm"
-                      >
-                        Sign In
+                    <div className="flex justify-center">
+                      <button onClick={() => setShowAuthModal(true)} className="btn-primary text-sm">
+                        Sign in to ask Bean
                       </button>
                     </div>
                   )}
-                  {creditsRemaining !== null && creditsTotal !== null && (
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: creditsTotal }).map((_, i) => (
-                          <img
-                            key={i}
-                            src={i < creditsRemaining ? '/beansfilled.svg' : '/beanempty.svg'}
-                            alt=""
-                            className="w-3.5 h-3.5 transition-opacity"
-                            style={{ opacity: i < creditsRemaining ? 1 : 0.35 }}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-[11px] text-charcoal-400">
-                        {creditsRemaining}/{creditsTotal} questions remaining today
-                      </span>
-                    </div>
+                  {chatError && (
+                    <p role="alert" className="mt-3 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
+                      {chatError}
+                    </p>
                   )}
                 </div>
-              ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${
-                      msg.role === 'user' ? 'justify-end' : 'justify-start'
-                    }`}
-                  >
-                    <div
-                      className={`${
-                        msg.role === 'user'
-                          ? 'max-w-[85%] bg-charcoal-900 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm'
-                          : 'w-full max-w-none'
-                      }`}
-                    >
-                      {msg.role === 'user' ? (
-                        <p className="font-sans">{msg.content}</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {/* Bean avatar + name */}
-                          <div className="flex items-center gap-2 mb-1">
-                            <BeanAnimation size={24} />
-                            <span className="text-xs font-semibold text-charcoal-600">
-                              Bean
-                            </span>
-                            {/* Badge removed — quick-reply chips already signal Bean needs more context */}
-                          </div>
 
-                          {/* Answer text — strip inline timestamps, render markdown */}
-                          <div className="text-sm text-charcoal-700 leading-relaxed prose prose-sm prose-charcoal max-w-none
-                            prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5
-                            prose-strong:text-charcoal-900 prose-strong:font-semibold
-                            prose-headings:text-charcoal-800 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1
-                            prose-a:text-accent-600 prose-a:no-underline hover:prose-a:underline">
-                            <ReactMarkdown>
-                              {msg.content
-                                .replace(/\s*\(?\d{1,2}:\d{2}:\d{2}\)?\s*/g, ' ')
-                                .replace(/\s*\[\d{1,2}:\d{2}:\d{2}\]\s*/g, ' ')
-                                .replace(/  +/g, ' ')
-                                .trim()}
-                            </ReactMarkdown>
-                          </div>
-
-                          {/* Quick reply chips for clarification */}
-                          {msg.needs_clarification &&
-                            msg.clarification_questions &&
-                            msg.clarification_questions.length > 0 && (
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                {msg.clarification_questions
-                                  .filter((q) => q.quickReply)
-                                  .map((q, idx) => (
-                                    <button
-                                      key={idx}
-                                      onClick={() =>
-                                        handleQuickReply(q.quickReply!)
-                                      }
-                                      className="text-xs px-3 py-1.5 bg-cream-100 hover:bg-cream-200 text-charcoal-700 rounded-full border border-charcoal-200/50 transition-colors"
-                                    >
-                                      {q.quickReply}
-                                    </button>
-                                  ))}
-                              </div>
-                            )}
-
-                          {/* Source references — compact clickable cards */}
-                          {msg.references && msg.references.length > 0 && (() => {
-                            // Deduplicate by guest_name + episode_title
-                            const seen = new Set<string>()
-                            const unique = msg.references!.filter((ref) => {
-                              const key = `${ref.guest_name}::${ref.episode_title}`
-                              if (seen.has(key)) return false
-                              seen.add(key)
-                              return true
-                            })
-                            return (
-                              <div className="space-y-2 mt-3">
-                                <p className="text-[10px] font-semibold text-charcoal-400 uppercase tracking-wider">
-                                  Sources
-                                </p>
-                                <div className="flex flex-wrap gap-2">
-                                  {unique.map((ref, idx) => {
-                                    const url = deepLink(ref.episode_url, ref.time_seconds)
-                                    const ts = formatSeconds(ref.time_seconds) ?? ref.timestamp ?? null
-                                    const Tag = url ? 'a' : 'div'
-                                    const linkProps = url
-                                      ? { href: url, target: '_blank' as const, rel: 'noopener noreferrer' }
-                                      : {}
-                                    return (
-                                      <Tag
-                                        key={idx}
-                                        {...linkProps}
-                                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-[11px] leading-tight transition-colors ${
-                                          url
-                                            ? 'border-charcoal-200/60 bg-white hover:bg-cream-50 hover:border-accent-300 cursor-pointer'
-                                            : 'border-charcoal-100 bg-cream-50'
-                                        }`}
-                                      >
-                                        {/* Play icon for linked sources */}
-                                        {url && (
-                                          <svg className="w-3.5 h-3.5 text-accent-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M8 5v14l11-7z" />
-                                          </svg>
-                                        )}
-                                        <span className="min-w-0">
-                                          <span className="font-semibold text-charcoal-800">{ref.guest_name}</span>
-                                          {ts && (
-                                            <span className="text-charcoal-400 font-mono ml-1">{ts}</span>
-                                          )}
-                                          <span className="block text-charcoal-500 truncate max-w-[220px] sm:max-w-[280px]">
-                                            {ref.episode_title}
-                                          </span>
-                                        </span>
-                                        {url && (
-                                          <svg className="w-3 h-3 text-charcoal-300 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                                            <polyline points="15 3 21 3 21 9" />
-                                            <line x1="10" y1="14" x2="21" y2="3" />
-                                          </svg>
-                                        )}
-                                      </Tag>
-                                    )
-                                  })}
-                                </div>
-                              </div>
-                            )
-                          })()}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-
-              {/* Loading indicator */}
-              {isChatLoading && (
-                <div className="flex justify-start">
-                  <div className="flex items-center gap-2">
-                    <BeanAnimation size={24} />
-                    <div className="bg-cream-100 rounded-xl px-4 py-2.5 text-sm text-charcoal-500">
-                      <span className="inline-flex gap-1">
-                        <span className="animate-bounce" style={{ animationDelay: '0ms' }}>·</span>
-                        <span className="animate-bounce" style={{ animationDelay: '150ms' }}>·</span>
-                        <span className="animate-bounce" style={{ animationDelay: '300ms' }}>·</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Error message */}
-              {chatError && (
-                <div className="flex justify-center">
-                  <div className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 max-w-sm text-center">
-                    {chatError}
-                  </div>
-                </div>
-              )}
-            </div>
-            )}
-
-            {/* Input area */}
-            {canUseChat ? (
-              <div className="pt-3 border-t border-charcoal-200/60 bg-cream-50 sticky bottom-0 z-50">
-                {/* Lightning Quiz entry chip */}
-                {!quizActive && !isChatLoading && (
-                  <div className="mb-2 px-1">
-                    <button
-                      onClick={() => setQuizActive(true)}
-                      className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 hover:border-amber-300 transition-all"
-                    >
-                      <span>&#9889;</span> Lightning Quiz
-                    </button>
-                  </div>
-                )}
-                {/* Credits display */}
-                {creditsRemaining !== null && creditsTotal !== null && (
-                  <div className="flex items-center justify-between mb-2 px-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: creditsTotal }).map((_, i) => (
-                          <img
-                            key={i}
-                            src={i < creditsRemaining ? '/beansfilled.svg' : '/beanempty.svg'}
-                            alt=""
-                            className="w-4 h-4 transition-opacity"
-                            style={{ opacity: i < creditsRemaining ? 1 : 0.35 }}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-[10px] text-charcoal-400">
-                        {creditsRemaining} question{creditsRemaining !== 1 ? 's' : ''} left today
-                      </span>
+                {canUseChat && (
+                  <div className="mt-6 w-full max-w-xl">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-charcoal-400 mb-2.5">
+                      Try asking
+                    </p>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {STARTER_QUESTIONS.map((starter) => (
+                        <button
+                          key={starter.label}
+                          type="button"
+                          onClick={() => askBean(starter.question)}
+                          disabled={isChatLoading || creditsRemaining === 0}
+                          className="text-[13px] px-3.5 py-1.5 rounded-full bg-white border border-charcoal-200/70 text-charcoal-700 hover:border-accent-300 hover:text-accent-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {starter.label}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {sttError && (
-                  <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-2">
-                    {sttError}
-                  </p>
-                )}
-                {isListening && (
-                  <div className="flex items-center justify-between mb-2 px-1">
-                    <button
-                      onClick={handleCancelSpeech}
-                      className="text-xs text-charcoal-500 hover:text-charcoal-700 transition-colors flex items-center gap-1"
-                    >
-                      <svg
-                        className="w-3 h-3"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="18" y1="6" x2="6" y2="18" />
-                        <line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                      Cancel
-                    </button>
-                    <div className="flex items-center gap-2">
-                      <span className="relative flex h-2.5 w-2.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
-                      </span>
-                      <span className="text-xs font-mono text-red-600">
-                        {elapsed}s
-                      </span>
-                    </div>
-                  </div>
-                )}
-                <form onSubmit={handleChatSubmit} className="relative">
-                  <input
-                    type="text"
-                    value={chatInput}
-                    onChange={(e) => {
-                      if (isListening) stopAndKeep()
-                      setChatInput(e.target.value)
-                      setChatError(null)
-                    }}
-                    placeholder={
-                      isListening
-                        ? 'Listening…'
-                        : creditsRemaining === 0
-                          ? 'No questions left today. Come back tomorrow!'
-                          : 'Ask Bean anything about the podcast…'
-                    }
-                    className={`w-full px-4 py-3 ${
-                      sttSupported ? 'pr-20' : 'pr-12'
-                    } rounded-xl bg-cream-100 text-sm text-charcoal-900 placeholder:text-charcoal-400 focus:outline-none focus:ring-2 focus:ring-accent-600/20 focus:bg-white transition-all ${
-                      isListening ? 'italic text-charcoal-600 ring-2 ring-red-300/40' : ''
-                    }`}
-                    disabled={isChatLoading || creditsRemaining === 0}
-                  />
-                  {/* Mic button */}
-                  {sttSupported && !isChatLoading && creditsRemaining !== 0 && (
+                <div className="mt-10 flex flex-col items-center gap-3 text-xs text-charcoal-400">
+                  {canUseChat && (
                     <button
                       type="button"
-                      onClick={handleMicClick}
-                      className={`absolute right-11 top-1/2 -translate-y-1/2 p-1.5 transition-colors ${
-                        isListening
-                          ? 'text-red-500 hover:text-red-600'
-                          : 'text-charcoal-400 hover:text-accent-600'
-                      }`}
-                      title={isListening ? 'Stop recording' : 'Voice input'}
+                      onClick={() => setQuizActive(true)}
+                      className="inline-flex items-center gap-1.5 font-medium text-amber-700 hover:text-amber-800 transition-colors"
                     >
-                      {isListening ? (
-                        /* Stop icon */
-                        <svg
-                          className="w-4 h-4"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                        >
-                          <rect x="6" y="6" width="12" height="12" rx="2" />
-                        </svg>
-                      ) : (
-                        /* Mic icon */
-                        <svg
-                          className="w-4 h-4"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                          <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                          <line x1="12" y1="19" x2="12" y2="23" />
-                          <line x1="8" y1="23" x2="16" y2="23" />
-                        </svg>
-                      )}
+                      <span aria-hidden="true">&#9889;</span>
+                      Not sure what to ask? Take the Lightning Quiz
                     </button>
                   )}
-                  {/* Send button */}
-                  <button
-                    type="submit"
-                    disabled={
-                      !chatInput.trim() || isChatLoading || creditsRemaining === 0
-                    }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-charcoal-400 hover:text-accent-600 disabled:opacity-40 transition-colors"
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <line x1="22" y1="2" x2="11" y2="13" />
-                      <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                    </svg>
-                  </button>
-                </form>
-                <p className="text-center text-[10px] text-charcoal-400 mt-2 pb-1">
-                  Powered by podcast transcripts · Always verify with original sources
-                </p>
+                  <p>{creditsLine} · Every answer cites its episodes</p>
+                </div>
               </div>
             ) : (
-              <div className="pt-3 border-t border-charcoal-200/60 bg-cream-50 sticky bottom-0">
-                <button
-                  onClick={() => { setShowAuthModal(true) }}
-                  className="w-full px-4 py-3 rounded-xl bg-cream-100 text-sm text-charcoal-400 text-left hover:bg-cream-200 transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4 text-charcoal-300 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                  Sign in to ask Bean anything…
-                </button>
-                <p className="text-center text-[10px] text-charcoal-400 mt-2 pb-1">
-                  Powered by podcast transcripts · Always verify with original sources
-                </p>
-              </div>
+              <>
+                <div className="flex-1 space-y-6 pt-6 pb-4">
+                  {messages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={
+                          msg.role === 'user'
+                            ? 'max-w-[85%] bg-charcoal-900 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm'
+                            : 'w-full max-w-none'
+                        }
+                      >
+                        {msg.role === 'user' ? (
+                          <p className="font-sans">{msg.content}</p>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <BeanAnimation size={24} loop={false} />
+                              <span className="text-xs font-semibold text-charcoal-600">Bean</span>
+                            </div>
+
+                            <div className="text-[15px] text-charcoal-700 leading-relaxed prose prose-sm prose-charcoal max-w-none
+                              prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5
+                              prose-strong:text-charcoal-900 prose-strong:font-semibold
+                              prose-headings:text-charcoal-800 prose-headings:font-semibold prose-headings:mt-3 prose-headings:mb-1
+                              prose-a:text-accent-600 prose-a:no-underline hover:prose-a:underline">
+                              <ReactMarkdown>
+                                {msg.content
+                                  .replace(/\s*\(?\d{1,2}:\d{2}:\d{2}\)?\s*/g, ' ')
+                                  .replace(/\s*\[\d{1,2}:\d{2}:\d{2}\]\s*/g, ' ')
+                                  .replace(/  +/g, ' ')
+                                  .trim()}
+                              </ReactMarkdown>
+                            </div>
+
+                            {msg.needs_clarification &&
+                              msg.clarification_questions &&
+                              msg.clarification_questions.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {msg.clarification_questions
+                                    .filter((q) => q.quickReply)
+                                    .map((q, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => askBean(q.quickReply!)}
+                                        disabled={isChatLoading}
+                                        className="text-[13px] px-3.5 py-1.5 bg-white hover:border-accent-300 hover:text-accent-700 text-charcoal-700 rounded-full border border-charcoal-200/70 transition-colors disabled:opacity-50"
+                                      >
+                                        {q.quickReply}
+                                      </button>
+                                    ))}
+                                </div>
+                              )}
+
+                            {msg.references && msg.references.length > 0 && (() => {
+                              const seen = new Set<string>()
+                              const unique = msg.references!.filter((ref) => {
+                                const key = `${ref.guest_name}::${ref.episode_title}`
+                                if (seen.has(key)) return false
+                                seen.add(key)
+                                return true
+                              })
+                              return (
+                                <div className="space-y-2 pt-1">
+                                  <p className="text-[11px] font-medium text-charcoal-400">
+                                    From {unique.length} episode{unique.length === 1 ? '' : 's'}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {unique.map((ref, idx) => {
+                                      const url = deepLink(ref.episode_url, ref.time_seconds)
+                                      const ts = formatSeconds(ref.time_seconds) ?? ref.timestamp ?? null
+                                      const Tag = url ? 'a' : 'div'
+                                      const linkProps = url
+                                        ? { href: url, target: '_blank' as const, rel: 'noopener noreferrer' }
+                                        : {}
+                                      return (
+                                        <Tag
+                                          key={idx}
+                                          {...linkProps}
+                                          title={url ? `Watch ${ref.guest_name}${ts ? ` at ${ts}` : ''}` : undefined}
+                                          className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-[11px] leading-tight transition-colors ${
+                                            url
+                                              ? 'border-charcoal-200/60 bg-white hover:border-accent-300 cursor-pointer'
+                                              : 'border-charcoal-100 bg-cream-50'
+                                          }`}
+                                        >
+                                          {url && (
+                                            <svg className="w-3.5 h-3.5 text-accent-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                              <path d="M8 5v14l11-7z" />
+                                            </svg>
+                                          )}
+                                          <span className="min-w-0">
+                                            <span className="font-semibold text-charcoal-800">{ref.guest_name}</span>
+                                            {ts && <span className="text-charcoal-400 font-mono ml-1">{ts}</span>}
+                                            <span className="block text-charcoal-500 truncate max-w-[220px] sm:max-w-[280px]">
+                                              {ref.episode_title}
+                                            </span>
+                                          </span>
+                                        </Tag>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {isChatLoading && (
+                    <div className="flex items-center gap-2" role="status">
+                      <BeanAnimation size={24} />
+                      <span className="text-sm text-charcoal-500">
+                        Searching the episodes
+                        <span className="inline-flex ml-0.5">
+                          <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+                          <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
+                        </span>
+                      </span>
+                    </div>
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* ── Docked composer once the conversation has started ── */}
+                <div className="sticky bottom-0 z-30 -mx-4 md:-mx-6 px-4 md:px-6 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] bg-gradient-to-t from-cream-50 via-cream-50 to-cream-50/0">
+                  {chatError && (
+                    <p role="alert" className="mb-2 text-xs text-red-700 bg-red-50 rounded-lg px-3 py-2">
+                      {chatError}
+                    </p>
+                  )}
+                  {canUseChat ? (
+                    <ChatComposer
+                      value={chatInput}
+                      onChange={(value) => {
+                        if (isListening) stopAndKeep()
+                        setChatInput(value)
+                        setChatError(null)
+                      }}
+                      onSubmit={() => askBean(chatInput)}
+                      placeholder={composerPlaceholder}
+                      disabled={creditsRemaining === 0}
+                      isLoading={isChatLoading}
+                      speech={speechProps}
+                    />
+                  ) : (
+                    <button onClick={() => setShowAuthModal(true)} className="btn-primary w-full text-sm">
+                      Sign in to ask Bean
+                    </button>
+                  )}
+                  <div className="mt-2 flex items-center justify-between gap-3 px-1 text-[11px] text-charcoal-400">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      {creditsRemaining !== null && creditsTotal !== null && (
+                        <span className="flex gap-0.5" aria-hidden="true">
+                          {Array.from({ length: creditsTotal }).map((_, i) => (
+                            <img
+                              key={i}
+                              src={i < creditsRemaining ? '/beansfilled.svg' : '/beanempty.svg'}
+                              alt=""
+                              className="w-3.5 h-3.5"
+                              style={{ opacity: i < creditsRemaining ? 1 : 0.35 }}
+                            />
+                          ))}
+                        </span>
+                      )}
+                      <span className="truncate">{creditsLine}</span>
+                    </span>
+                    <span className="flex items-center gap-3 flex-shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setQuizActive(true)}
+                        disabled={isChatLoading}
+                        className="hover:text-amber-700 transition-colors disabled:opacity-50"
+                      >
+                        <span aria-hidden="true">&#9889;</span> Lightning Quiz
+                      </button>
+                      <button
+                        type="button"
+                        onClick={startNewChat}
+                        disabled={isChatLoading}
+                        className="hover:text-charcoal-700 transition-colors disabled:opacity-50"
+                      >
+                        New chat
+                      </button>
+                    </span>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         )}

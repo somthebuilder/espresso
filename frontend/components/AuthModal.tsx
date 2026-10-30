@@ -182,7 +182,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               disabled={loading}
               className="btn-primary w-full"
             >
-              {loading ? 'Sending link…' : 'Send Magic Link'}
+              {loading ? 'Sending link…' : 'Send magic link'}
             </button>
 
             <p className="text-[11px] text-charcoal-400 text-center leading-relaxed">

@@ -193,7 +193,7 @@ export default function PodcastRequestSection() {
           {/* Header */}
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-charcoal-800 uppercase tracking-wider">
-              Requested Knowledge Bases
+              Requested knowledge bases
             </h3>
             {identity && (
               <div className="flex items-center gap-2">

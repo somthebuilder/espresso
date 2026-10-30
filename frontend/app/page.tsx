@@ -425,7 +425,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-4 justify-center">
                 <div className="h-px w-16 md:w-24 bg-gradient-to-r from-transparent to-espresso-300/70" />
                 <span className="text-[10px] font-sans font-medium uppercase tracking-[0.3em] text-espresso-400 select-none">
-                  Coming Soon
+                  Coming soon
                 </span>
                 <div className="h-px w-16 md:w-24 bg-gradient-to-l from-transparent to-espresso-300/70" />
               </div>
@@ -523,7 +523,7 @@ export default function LandingPage() {
                       <div className="flex items-center gap-3">
                         <div className="h-px flex-1 bg-gradient-to-r from-espresso-200/40 to-transparent" />
                         <h4 className="text-[10px] font-sans font-semibold uppercase tracking-[0.2em] text-espresso-400">
-                        Community Suggestions
+                        Community suggestions
                       </h4>
                         <div className="h-px flex-1 bg-gradient-to-l from-espresso-200/40 to-transparent" />
                       </div>
@@ -601,7 +601,7 @@ export default function LandingPage() {
                               disabled={inlineAuthLoading}
                               className="w-full text-sm font-medium text-white bg-espresso-600 hover:bg-espresso-700 disabled:opacity-50 rounded-xl py-2.5 transition-all duration-200 shadow-sm hover:shadow-md"
                             >
-                              {inlineAuthLoading ? 'Sending link…' : 'Send Magic Link'}
+                              {inlineAuthLoading ? 'Sending link…' : 'Send magic link'}
                             </button>
                           </form>
                         )}
@@ -660,7 +660,7 @@ export default function LandingPage() {
                           }
                           className="w-full text-sm font-medium text-white bg-espresso-600 hover:bg-espresso-700 disabled:opacity-50 rounded-xl py-2.5 transition-all duration-200 shadow-sm hover:shadow-md"
                         >
-                          {submitting ? 'Submitting…' : 'Submit Suggestion'}
+                          {submitting ? 'Submitting…' : 'Submit suggestion'}
                         </button>
                         <p className="text-[11px] text-charcoal-400 text-center leading-snug font-serif italic">
                           Suggestions are reviewed before being added to the list.

@@ -6,7 +6,7 @@ import AuthModal from './AuthModal'
 import { AUTH_REQUIRED } from '@/lib/auth-config'
 
 type HeaderProps = {
-  /** When set (e.g. Lenny’s podcast page), shows the bordered “Theme Graph” control in the header */
+  /** When set (e.g. Lenny’s podcast page), shows the bordered “Theme graph” control in the header */
   themeGraphHref?: string
   /** Lenny-only: Operator Simulator */
   simulatorHref?: string
@@ -38,9 +38,11 @@ export default function Header({ themeGraphHref, simulatorHref }: HeaderProps) {
             {themeGraphHref && (
               <Link
                 href={themeGraphHref}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-charcoal-200 text-charcoal-600 hover:text-accent-700 hover:border-accent-200 hover:bg-white transition-colors"
+                aria-label="Theme graph"
+                title="See how themes connect across episodes"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 sm:px-3 py-1.5 rounded-lg border border-charcoal-200 text-charcoal-600 hover:text-accent-700 hover:border-accent-200 hover:bg-white transition-colors"
               >
-                <span>Theme Graph</span>
+                <span className="hidden sm:inline">Theme graph</span>
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="5" cy="6" r="2" />
                   <circle cx="19" cy="6" r="2" />
@@ -52,9 +54,11 @@ export default function Header({ themeGraphHref, simulatorHref }: HeaderProps) {
             {simulatorHref && (
               <Link
                 href={simulatorHref}
-                className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-charcoal-200 text-charcoal-600 hover:text-accent-700 hover:border-accent-200 hover:bg-white transition-colors"
+                aria-label="Operator simulator"
+                title="Practice real product decisions"
+                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 sm:px-3 py-1.5 rounded-lg border border-charcoal-200 text-charcoal-600 hover:text-accent-700 hover:border-accent-200 hover:bg-white transition-colors"
               >
-                <span>Simulator</span>
+                <span className="hidden sm:inline">Operator simulator</span>
                 <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
                 </svg>
@@ -66,7 +70,7 @@ export default function Header({ themeGraphHref, simulatorHref }: HeaderProps) {
                 onClick={() => setShowAuth(true)}
                 className="text-xs font-medium text-charcoal-500 hover:text-espresso-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-espresso-50/60"
               >
-                {hasAccount ? 'Continue' : 'Sign In'}
+                {hasAccount ? 'Continue' : 'Sign in'}
               </button>
             )}
           </div>

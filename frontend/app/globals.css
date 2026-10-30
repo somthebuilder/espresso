@@ -33,6 +33,13 @@ h1, h2, h3, h4, h5, h6 {
   letter-spacing: -0.015em;
 }
 
+/* Below lg the chat column reaches the screen edge, where the floater would cover the send button */
+@media (max-width: 1023px) {
+  body[data-chat-active='true'] [data-coffee-floater] {
+    display: none;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

@@ -191,7 +191,7 @@ export default function SimulatorHubClient({ podcastSlug }: { podcastSlug: strin
           ← Back to podcast
         </Link>
       </p>
-      <h1 className="text-2xl md:text-3xl font-serif text-charcoal-900 mb-2">Operator Simulator</h1>
+      <h1 className="text-2xl md:text-3xl font-serif text-charcoal-900 mb-2">Operator simulator</h1>
       <p className="text-sm md:text-base text-charcoal-600 max-w-2xl leading-relaxed mb-6">
         Train your decision-making like a top operator.
       </p>

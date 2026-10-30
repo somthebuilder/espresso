@@ -2,6 +2,7 @@ import Link from 'next/link'
 import Header from '@/components/Header'
 import ConceptValuableButton from '@/components/concepts/ConceptValuableButton'
 import ConceptBody from '@/components/concepts/ConceptBody'
+import { PODCAST_TABS } from '@/components/podcast-tabs-config'
 import { getConceptBySlug } from '@/lib/api/concepts'
 import { extractBodyReferences, mergeReferences } from '@/lib/extract-body-references'
 
@@ -32,38 +33,16 @@ export default async function ConceptPage({ params }: { params: { 'podcast-slug'
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-serif font-semibold">Concept not found</h1>
-          <Link href={`/${params['podcast-slug']}`} className="text-accent-600 hover:underline">
-            Return to Knowledge Base
+          <p className="text-sm text-charcoal-500">It may have been renamed or merged into another concept.</p>
+          <Link href={`/${params['podcast-slug']}?tab=concepts`} className="text-accent-600 hover:underline">
+            Browse all concepts
           </Link>
         </div>
       </div>
     )
   }
 
-  const tabs = [
-    {
-      id: 'concepts',
-      label: 'Concepts',
-      href: `/${podcastSlug}?tab=concepts`,
-      icon: (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 16v-4" />
-          <path d="M12 8h.01" />
-        </svg>
-      ),
-    },
-    {
-      id: 'chat',
-      label: 'Chat',
-      href: `/${podcastSlug}?tab=chat`,
-      icon: (
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      ),
-    },
-  ]
+  const tabs = PODCAST_TABS.map((tab) => ({ ...tab, href: `/${podcastSlug}?tab=${tab.id}` }))
 
   // Extract inline citations from body and merge with database references
   const bodyRefs = extractBodyReferences(concept.body)
@@ -122,10 +101,14 @@ export default async function ConceptPage({ params }: { params: { 'podcast-slug'
         <div className="max-w-3xl mx-auto px-4 md:px-6 py-3 md:py-5 space-y-5 md:space-y-6">
           {/* Title section — responsive sizing */}
           <div className="space-y-4 md:space-y-6">
-            {(concept.theme_label || concept.category) && (
-              <div className="flex items-center gap-3 flex-wrap text-xs md:text-sm text-charcoal-500">
-                {concept.theme_label && <span>Theme: {concept.theme_label}</span>}
-                {concept.category && <span>Category: {concept.category}</span>}
+            {(concept.category || concept.theme_label) && (
+              <div className="flex items-center gap-2 flex-wrap text-xs">
+                {concept.category && (
+                  <span className="px-2.5 py-1 rounded-md bg-accent-50 text-accent-700 font-medium">{concept.category}</span>
+                )}
+                {concept.theme_label && concept.theme_label !== concept.category && (
+                  <span className="px-2.5 py-1 rounded-md bg-cream-100 text-charcoal-600">{concept.theme_label}</span>
+                )}
               </div>
             )}
 
@@ -146,7 +129,10 @@ export default async function ConceptPage({ params }: { params: { 'podcast-slug'
           {/* References & Sources — DB refs merged with inline body citations */}
           {allReferences.length > 0 && (
             <div className="border-t border-charcoal-200 pt-8 md:pt-12 space-y-4 md:space-y-6">
-              <h3 className="text-base md:text-lg font-serif font-semibold text-charcoal-900">References &amp; Sources</h3>
+              <div className="space-y-1">
+                <h2 className="text-base md:text-lg font-serif font-semibold text-charcoal-900">Sources</h2>
+                <p className="text-sm text-charcoal-500">Jump to the moment each idea was said.</p>
+              </div>
               <div className="grid gap-3 md:gap-4 sm:grid-cols-2">
                 {allReferences.map((ref, idx) => {
                   const clickUrl = deepLink(ref.episode_url, ref.time_seconds)
@@ -194,6 +180,21 @@ export default async function ConceptPage({ params }: { params: { 'podcast-slug'
               </div>
             </div>
           )}
+
+          <div className="border-t border-charcoal-200 pt-8 pb-12 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
+              <p className="font-serif font-semibold text-charcoal-900">Have a follow-up question?</p>
+              <p className="text-sm text-charcoal-500">Bean can dig into what guests said about it.</p>
+            </div>
+            <div className="flex items-center gap-4 flex-shrink-0">
+              <Link href={`/${podcastSlug}?tab=concepts`} className="text-sm font-medium text-charcoal-600 hover:text-charcoal-900">
+                More concepts
+              </Link>
+              <Link href={`/${podcastSlug}?tab=chat`} className="btn-primary text-sm">
+                Ask Bean
+              </Link>
+            </div>
+          </div>
         </div>
       </article>
     </div>
